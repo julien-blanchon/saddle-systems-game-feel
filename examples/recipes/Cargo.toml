@@ -1,0 +1,13 @@
+[package]
+name = "saddle-systems-game-feel-example-recipes"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+bevy = { workspace = true }
+saddle-systems-game-feel = { workspace = true }
+saddle-systems-game-feel-example-support = { path = "../support" }
+
+[lints]
+workspace = true
