@@ -176,17 +176,37 @@ fn world_hitstop_drops_global_scale_and_recovers() {
         });
 
     advance_frame(&mut app);
-    assert!(app.world().resource::<saddle_systems_game_feel::GlobalTimeScale>().scale < 0.001);
+    assert!(
+        app.world()
+            .resource::<saddle_systems_game_feel::GlobalTimeScale>()
+            .scale
+            < 0.001
+    );
 
     advance_frame(&mut app);
     advance_frame(&mut app);
-    assert!(app.world().resource::<saddle_systems_game_feel::GlobalTimeScale>().scale < 0.001);
+    assert!(
+        app.world()
+            .resource::<saddle_systems_game_feel::GlobalTimeScale>()
+            .scale
+            < 0.001
+    );
 
     advance_frame(&mut app);
-    assert!(app.world().resource::<saddle_systems_game_feel::GlobalTimeScale>().scale > 0.45);
+    assert!(
+        app.world()
+            .resource::<saddle_systems_game_feel::GlobalTimeScale>()
+            .scale
+            > 0.45
+    );
 
     advance_frame(&mut app);
-    assert!(app.world().resource::<saddle_systems_game_feel::GlobalTimeScale>().scale > 0.99);
+    assert!(
+        app.world()
+            .resource::<saddle_systems_game_feel::GlobalTimeScale>()
+            .scale
+            > 0.99
+    );
 }
 
 #[test]

@@ -1,4 +1,6 @@
-use saddle_bevy_e2e::{action::Action, actions::assertions, scenario::Scenario, snapshot::Snapshot};
+use saddle_bevy_e2e::{
+    action::Action, actions::assertions, scenario::Scenario, snapshot::Snapshot,
+};
 
 use crate::{LabControl, LabEvidence, LabMode, reset_lab};
 
@@ -35,12 +37,11 @@ fn smoke_launch() -> Scenario {
         .then(assertions::entity_exists::<crate::support::DemoTarget>(
             "target exists",
         ))
-        .then(
-            assertions::resource_satisfies::<saddle_systems_game_feel::GlobalTimeScale>(
-                "global time initialized",
-                |time| (time.scale - 1.0).abs() < 0.000_1,
-            ),
-        )
+        .then(assertions::resource_satisfies::<
+            saddle_systems_game_feel::GlobalTimeScale,
+        >("global time initialized", |time| {
+            (time.scale - 1.0).abs() < 0.000_1
+        }))
         .then(assertions::resource_satisfies::<LabEvidence>(
             "idle has no active feel output",
             |evidence| {

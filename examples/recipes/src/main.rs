@@ -1,7 +1,9 @@
 use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
-use saddle_systems_game_feel::{FeedbackContext, GameFeelChannels, GameFeelPlugin, PlayFeedbackRecipe};
+use saddle_systems_game_feel::{
+    FeedbackContext, GameFeelChannels, GameFeelPlugin, PlayFeedbackRecipe,
+};
 
 #[derive(Resource)]
 struct RecipeTimer(Timer);
