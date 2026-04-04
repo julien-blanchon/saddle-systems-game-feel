@@ -4,6 +4,7 @@
 
 | Field | Type | Default | Valid Range | Effect | Practical Advice |
 | --- | --- | --- | --- | --- | --- |
+| `screen_presentation` | `ScreenPulsePresentation` | `OutputOnly` | `OutputOnly` or `LegacyBuiltIn` | Chooses whether screen pulses stay as pure output data or also drive the legacy overlay/chromatic adapter | Prefer `OutputOnly` when another renderer crate owns the final screen stack |
 | `overlay_flash_color` | `Color` | `WHITE` | any color | Reserved tint for screen-flash presentation | Leave at white unless your project wants a strong global tint bias |
 | `overlay_vignette_color` | `Color` | `BLACK` | any color | Color written to the screen-edge vignette overlay | Use black or a dark brand color |
 | `overlay_border_fraction` | `f32` | `0.18` | `0.0..=0.5` | Fraction of the screen covered by each vignette border quad | `0.12..0.22` reads well for most 16:9 scenes |
@@ -133,6 +134,27 @@ Pair `EntityTimeScale` with `resolve_effective_time_scale(...)` when consumer mo
 | `easing` | Envelope curve |
 | `clock` | `Unscaled` or `GlobalScaled` timing |
 
+## Rumble Requests
+
+`RequestRumble` is the output-only haptics surface:
+
+| Field | Effect |
+| --- | --- |
+| `target` | Chooses one listener, a channel selection, or all rumble listeners |
+| `low_frequency` | Low-motor strength after listener scaling |
+| `high_frequency` | High-motor strength after listener scaling |
+| `duration_secs` | Envelope duration |
+| `easing` | Envelope curve used when sampling the output |
+| `clock` | `Unscaled` or `GlobalScaled` timing |
+
+`RumbleListener` fields:
+
+| Field | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `channels` | `GameFeelChannels` | `GameFeelChannels::ALL` | Filters group-targeted requests |
+| `low_frequency_scale` | `f32` | `1.0` | Per-listener scale for low-motor intensity |
+| `high_frequency_scale` | `f32` | `1.0` | Per-listener scale for high-motor intensity |
+
 ## Squash / Stretch Requests
 
 `RequestSquashStretch` fields:
@@ -167,12 +189,23 @@ Recipe authoring types:
 - `RecipeFlash`
 - `RecipeHitstop`
 - `RecipeTimeScale`
+- `RecipeRumble`
 - `RecipeSquashStretch`
+- `RecipeHooks`
+
+Additional recipe controls:
+
+| Type | Purpose |
+| --- | --- |
+| `FeedbackCondition` | Gate recipe playback on listener, target, origin, group, or channel availability |
+| `FeedbackRecipeRepeat` | Play once or replay the whole recipe a fixed number of times with a configurable gap |
 
 Important defaults:
 
 - `FeedbackRecipeLibrary::default()` loads the built-in presets
 - `FeedbackRecipeLibrary::empty()` gives a truly blank library
+- Built-in recipes emit `FeedbackHookTriggered` for audio/particle integration without hard-coding any backend dependency
+- The built-in impact-oriented recipes now also emit `RequestRumble` so downstream input or platform layers can mirror the authored feedback mix
 
 ## Tuning Notes
 
@@ -202,4 +235,3 @@ If gameplay systems should obey feel timing:
 3. multiply your own authored motion or animation clocks by that value
 
 That keeps ownership explicit and avoids hidden global-time side effects.
-

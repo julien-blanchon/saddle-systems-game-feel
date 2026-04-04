@@ -159,20 +159,28 @@ fn hitstop_flash() -> Scenario {
 
 fn recipe_showcase() -> Scenario {
     Scenario::builder("recipe_showcase")
-        .description("Cycle the built-in showcase recipes, assert step firing and visual pulses, then capture the result.")
+        .description("Cycle built-in and repeating showcase recipes, assert step firing, hook cues, and rumble output, then capture the result.")
         .then(Action::Custom(Box::new(|world| reset_lab(world, LabMode::RecipeShowcase))))
         .then(Action::WaitUntil {
             label: "recipes fired".into(),
-            condition: Box::new(|world| world.resource::<LabEvidence>().recipe_steps >= 5),
+            condition: Box::new(|world| world.resource::<LabEvidence>().recipe_steps >= 6),
             max_frames: 220,
         })
         .then(assertions::resource_satisfies::<LabEvidence>(
             "recipe steps recorded",
-            |evidence| evidence.recipe_steps >= 5,
+            |evidence| evidence.recipe_steps >= 6,
+        ))
+        .then(assertions::resource_satisfies::<LabEvidence>(
+            "recipe hook messages fired for audio or particle bridges",
+            |evidence| evidence.hook_messages >= 4,
         ))
         .then(assertions::resource_satisfies::<LabEvidence>(
             "recipe visuals exercised",
-            |evidence| evidence.max_screen_flash > 0.08 && evidence.max_target_scale_delta > 0.1,
+            |evidence| {
+                evidence.max_screen_flash > 0.08
+                    && evidence.max_target_scale_delta > 0.1
+                    && evidence.max_rumble > 0.1
+            },
         ))
         .then(Action::Screenshot("recipe_showcase_peak".into()))
         .then(Action::WaitFrames(1))

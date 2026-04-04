@@ -10,9 +10,12 @@ use bevy::remote::{RemotePlugin, http::RemoteHttpPlugin};
 #[cfg(feature = "dev")]
 use bevy_brp_extras::BrpExtrasPlugin;
 use saddle_systems_game_feel::{
-    AddTrauma, FeedbackContext, FeedbackStepFired, FlashOutput, FlashTarget, GameFeelChannels,
-    GameFeelDiagnostics, GameFeelPlugin, GlobalTimeScale, ListenerTarget, PlayFeedbackRecipe,
-    RequestCameraImpulse, RequestFlash, RequestHitstop, RequestSquashStretch, ScreenPulseOutput,
+    AddTrauma, EffectTimeDomain, EntitySelector, FeedbackAction, FeedbackCondition,
+    FeedbackContext, FeedbackHookTriggered, FeedbackRecipe, FeedbackRecipeLibrary,
+    FeedbackRecipeRepeat, FeedbackStep, FeedbackStepFired, FlashOutput, FlashTarget,
+    GameFeelChannels, GameFeelDiagnostics, GameFeelPlugin, GlobalTimeScale, ListenerSelector,
+    ListenerTarget, PlayFeedbackRecipe, RecipeHooks, RecipeRumble, RequestCameraImpulse,
+    RequestFlash, RequestHitstop, RequestSquashStretch, RumbleOutput, ScreenPulseOutput,
     ShakeState, TimeScaleTarget,
 };
 
@@ -73,7 +76,10 @@ pub struct LabEvidence {
     pub current_target_flash: f32,
     pub current_screen_flash: f32,
     pub current_target_scale_delta: f32,
+    pub max_rumble: f32,
+    pub current_rumble: f32,
     pub recipe_steps: u32,
+    pub hook_messages: u32,
     pub camera_distance_from_baseline: f32,
     pub target_distance_from_baseline: f32,
 }
@@ -89,7 +95,10 @@ impl Default for LabEvidence {
             current_target_flash: 0.0,
             current_screen_flash: 0.0,
             current_target_scale_delta: 0.0,
+            max_rumble: 0.0,
+            current_rumble: 0.0,
             recipe_steps: 0,
+            hook_messages: 0,
             camera_distance_from_baseline: 0.0,
             target_distance_from_baseline: 0.0,
         }
@@ -99,6 +108,7 @@ impl Default for LabEvidence {
 fn main() {
     let mut app = App::new();
     support::add_example_plugins(&mut app, "Game Feel Lab", Color::srgb(0.04, 0.05, 0.08));
+    support::seed_example_pane(&mut app, support::ExampleFeelPane::default());
     #[cfg(feature = "dev")]
     app.add_plugins(RemotePlugin::default());
     #[cfg(feature = "dev")]
@@ -115,6 +125,7 @@ fn main() {
     app.insert_resource(LabControl::default());
     app.insert_resource(LabBaselines::default());
     app.insert_resource(LabEvidence::default());
+    app.insert_resource(lab_recipe_library());
     app.add_plugins(GameFeelPlugin::default());
     app.add_systems(
         Startup,
@@ -159,6 +170,64 @@ pub fn reset_lab(world: &mut World, mode: LabMode) {
         },
     };
     *world.resource_mut::<LabEvidence>() = LabEvidence::default();
+}
+
+fn lab_recipe_library() -> FeedbackRecipeLibrary {
+    let mut library = FeedbackRecipeLibrary::with_builtin_presets();
+    library.recipes.insert(
+        "combo_loop".into(),
+        FeedbackRecipe {
+            cooldown_secs: 0.0,
+            condition: FeedbackCondition::RequiresListener,
+            repeat: FeedbackRecipeRepeat::Times {
+                total_plays: 2,
+                gap_secs: 0.22,
+            },
+            steps: vec![
+                FeedbackStep {
+                    name: "jab".into(),
+                    at_secs: 0.0,
+                    actions: vec![
+                        FeedbackAction::Hooks(RecipeHooks {
+                            audio_cue: Some("jab_whoosh".into()),
+                            particle_cue: Some("small_hit_sparks".into()),
+                            target: Some(EntitySelector::ContextTarget),
+                            use_context_origin: true,
+                        }),
+                        FeedbackAction::Rumble(RecipeRumble {
+                            target: ListenerSelector::ContextListener,
+                            low_frequency: 0.24,
+                            high_frequency: 0.42,
+                            duration_secs: 0.12,
+                            easing: bevy::math::curve::easing::EaseFunction::QuadraticOut,
+                            clock: EffectTimeDomain::GlobalScaled,
+                        }),
+                    ],
+                },
+                FeedbackStep {
+                    name: "finisher".into(),
+                    at_secs: 0.18,
+                    actions: vec![
+                        FeedbackAction::Hooks(RecipeHooks {
+                            audio_cue: Some("combo_finisher".into()),
+                            particle_cue: Some("radial_ring".into()),
+                            target: Some(EntitySelector::ContextTarget),
+                            use_context_origin: true,
+                        }),
+                        FeedbackAction::Rumble(RecipeRumble {
+                            target: ListenerSelector::ContextListener,
+                            low_frequency: 0.62,
+                            high_frequency: 0.36,
+                            duration_secs: 0.2,
+                            easing: bevy::math::curve::easing::EaseFunction::CubicOut,
+                            clock: EffectTimeDomain::GlobalScaled,
+                        }),
+                    ],
+                },
+            ],
+        },
+    );
+    library
 }
 
 fn capture_baselines(
@@ -260,7 +329,7 @@ fn drive_lab_mode(
         {
             let recipe_name = match control.showcase_index % 3 {
                 0 => "heavy_impact",
-                1 => "explosion",
+                1 => "combo_loop",
                 _ => "reward_ping",
             };
             recipes.write(PlayFeedbackRecipe {
@@ -283,9 +352,11 @@ fn drive_lab_mode(
 
 fn record_feedback_steps(
     mut reader: MessageReader<FeedbackStepFired>,
+    mut hook_reader: MessageReader<FeedbackHookTriggered>,
     mut evidence: ResMut<LabEvidence>,
 ) {
     evidence.recipe_steps += reader.read().count() as u32;
+    evidence.hook_messages += hook_reader.read().count() as u32;
 }
 
 fn track_lab_evidence(
@@ -296,6 +367,7 @@ fn track_lab_evidence(
     camera_shake: Query<&ShakeState, With<support::DemoCamera>>,
     target_flash: Query<&FlashOutput, With<support::DemoTarget>>,
     screen_flash: Query<&ScreenPulseOutput, With<support::DemoCamera>>,
+    rumble: Query<&RumbleOutput, With<support::DemoCamera>>,
     target_scale: Query<&saddle_systems_game_feel::SquashStretchState, With<support::DemoTarget>>,
     mut evidence: ResMut<LabEvidence>,
 ) {
@@ -317,6 +389,13 @@ fn track_lab_evidence(
         evidence.current_screen_flash = pulse.flash_alpha;
     } else {
         evidence.current_screen_flash = 0.0;
+    }
+    if let Ok(rumble) = rumble.single() {
+        let current_rumble = rumble.low_frequency.max(rumble.high_frequency);
+        evidence.max_rumble = evidence.max_rumble.max(current_rumble);
+        evidence.current_rumble = current_rumble;
+    } else {
+        evidence.current_rumble = 0.0;
     }
     if let Ok(scale) = target_scale.single() {
         let current_scale_delta = (scale.scale_multiplier - Vec3::ONE).length();
@@ -347,7 +426,7 @@ fn update_lab_overlay(
     };
 
     text.0 = format!(
-        "Game Feel Lab\nMode {:?} frame {}\nGlobal scale {:.2}\nPeak shake {:.2}  target flash {:.2}/{:.2}  screen flash {:.2}/{:.2}\nPeak squash {:.2}/{:.2}  recipe steps {}\nCamera drift {:.2}  target drift {:.2}\nDiagnostics: shake {} punch {} flash {} screen {} recipes {}",
+        "Game Feel Lab\nMode {:?} frame {}\nGlobal scale {:.2}\nPeak shake {:.2}  target flash {:.2}/{:.2}  screen flash {:.2}/{:.2}  rumble {:.2}/{:.2}\nPeak squash {:.2}/{:.2}  recipe steps {}  hooks {}\nCamera drift {:.2}  target drift {:.2}\nDiagnostics: shake {} punch {} flash {} screen {} rumble {} recipes {}",
         control.mode,
         control.mode_frame,
         global.scale,
@@ -356,15 +435,19 @@ fn update_lab_overlay(
         evidence.max_target_flash,
         evidence.current_screen_flash,
         evidence.max_screen_flash,
+        evidence.current_rumble,
+        evidence.max_rumble,
         evidence.current_target_scale_delta,
         evidence.max_target_scale_delta,
         evidence.recipe_steps,
+        evidence.hook_messages,
         evidence.camera_distance_from_baseline,
         evidence.target_distance_from_baseline,
         diagnostics.active_shake_listeners,
         diagnostics.active_punch_listeners,
         diagnostics.active_entity_flashes,
         diagnostics.active_screen_pulses,
+        diagnostics.active_rumble_listeners,
         diagnostics.active_recipe_players,
     );
 }

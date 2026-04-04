@@ -4,25 +4,30 @@ mod flash;
 mod messages;
 mod punch;
 mod recipe;
+mod rumble;
 mod shake;
 mod squash;
 mod time_scale;
 mod tween;
 
 pub use channels::GameFeelChannels;
-pub use config::{DistanceAttenuation, EffectTimeDomain, GameFeelConfig, GameFeelDiagnostics};
+pub use config::{
+    DistanceAttenuation, EffectTimeDomain, GameFeelConfig, GameFeelDiagnostics,
+    ScreenPulsePresentation,
+};
 pub use flash::{FlashOutput, FlashTarget, ScreenPulseListener, ScreenPulseOutput};
 pub use messages::{
     AddTrauma, ListenerTarget, PlayFeedbackRecipe, RequestCameraImpulse, RequestFlash,
-    RequestHitstop, RequestSplitHitstop, RequestSquashStretch, RequestTimeScale,
+    RequestHitstop, RequestRumble, RequestSplitHitstop, RequestSquashStretch, RequestTimeScale,
 };
 pub use punch::{ImpulseSpace, PunchListener, PunchProfile, PunchState, SpringSettings};
 pub use recipe::{
-    EntitySelector, FeedbackAction, FeedbackContext, FeedbackRecipe, FeedbackRecipeLibrary,
-    FeedbackStep, FeedbackStepFired, ListenerSelector, RecipeFlash, RecipeFlashTarget,
-    RecipeHitstop, RecipeImpulse, RecipeSquashStretch, RecipeTimeScale, RecipeTrauma,
-    TimeScaleSelector,
+    EntitySelector, FeedbackAction, FeedbackCondition, FeedbackContext, FeedbackHookTriggered,
+    FeedbackRecipe, FeedbackRecipeLibrary, FeedbackRecipeRepeat, FeedbackStep, FeedbackStepFired,
+    ListenerSelector, RecipeFlash, RecipeFlashTarget, RecipeHitstop, RecipeHooks, RecipeImpulse,
+    RecipeRumble, RecipeSquashStretch, RecipeTimeScale, RecipeTrauma, TimeScaleSelector,
 };
+pub use rumble::{RumbleListener, RumbleOutput};
 pub use shake::{ShakeAccessibility, ShakeBudget, ShakeListener, ShakeProfile, ShakeState};
 pub use squash::{ScaleEffectMode, ScaleStacking, SquashStretchState};
 pub use time_scale::{
@@ -120,9 +125,11 @@ impl Plugin for GameFeelPlugin {
             .add_message::<RequestHitstop>()
             .add_message::<RequestSplitHitstop>()
             .add_message::<RequestFlash>()
+            .add_message::<RequestRumble>()
             .add_message::<RequestSquashStretch>()
             .add_message::<PlayFeedbackRecipe>()
             .add_message::<FeedbackStepFired>()
+            .add_message::<FeedbackHookTriggered>()
             .register_type::<AddTrauma>()
             .register_type::<AttackSustainDecay>()
             .register_type::<DistanceAttenuation>()
@@ -130,9 +137,12 @@ impl Plugin for GameFeelPlugin {
             .register_type::<EntitySelector>()
             .register_type::<EntityTimeScale>()
             .register_type::<FeedbackAction>()
+            .register_type::<FeedbackCondition>()
             .register_type::<FeedbackContext>()
+            .register_type::<FeedbackHookTriggered>()
             .register_type::<FeedbackRecipe>()
             .register_type::<FeedbackRecipeLibrary>()
+            .register_type::<FeedbackRecipeRepeat>()
             .register_type::<FeedbackStep>()
             .register_type::<FeedbackStepFired>()
             .register_type::<FlashOutput>()
@@ -153,19 +163,25 @@ impl Plugin for GameFeelPlugin {
             .register_type::<PunchState>()
             .register_type::<RecipeFlash>()
             .register_type::<RecipeFlashTarget>()
+            .register_type::<RecipeHooks>()
             .register_type::<RecipeHitstop>()
             .register_type::<RecipeImpulse>()
+            .register_type::<RecipeRumble>()
             .register_type::<RecipeSquashStretch>()
             .register_type::<RecipeTimeScale>()
             .register_type::<RecipeTrauma>()
             .register_type::<RequestCameraImpulse>()
             .register_type::<RequestFlash>()
             .register_type::<RequestHitstop>()
+            .register_type::<RequestRumble>()
             .register_type::<RequestSplitHitstop>()
             .register_type::<RequestSquashStretch>()
             .register_type::<RequestTimeScale>()
+            .register_type::<RumbleListener>()
+            .register_type::<RumbleOutput>()
             .register_type::<ScaleEffectMode>()
             .register_type::<ScaleStacking>()
+            .register_type::<ScreenPulsePresentation>()
             .register_type::<ScreenPulseListener>()
             .register_type::<ScreenPulseOutput>()
             .register_type::<ShakeAccessibility>()
@@ -245,6 +261,7 @@ impl Plugin for GameFeelPlugin {
                     process_trauma_requests,
                     process_punch_requests,
                     process_flash_requests,
+                    process_rumble_requests,
                     process_squash_requests,
                 )
                     .chain()
@@ -261,6 +278,7 @@ impl Plugin for GameFeelPlugin {
                     punch::update_punch_states,
                     flash::update_entity_flash_outputs,
                     flash::update_screen_pulse_outputs,
+                    rumble::update_rumble_outputs,
                     squash::update_scale_outputs,
                 )
                     .chain()
@@ -268,6 +286,7 @@ impl Plugin for GameFeelPlugin {
                 (
                     cleanup_empty_entity_flash_runtimes,
                     cleanup_empty_screen_pulse_runtimes,
+                    cleanup_empty_rumble_runtimes,
                     cleanup_empty_scale_runtimes,
                     flash::cleanup_orphaned_overlays,
                     flash::ensure_screen_overlays.run_if(runtime_is_active),
@@ -556,6 +575,31 @@ fn process_flash_requests(world: &mut World) {
     }
 }
 
+fn process_rumble_requests(world: &mut World) {
+    let requests: Vec<RequestRumble> = world
+        .resource_mut::<Messages<RequestRumble>>()
+        .drain()
+        .collect();
+    if requests.is_empty() {
+        return;
+    }
+
+    let mut query = world.query::<(Entity, &RumbleListener)>();
+    for request in requests {
+        let mut listeners = Vec::new();
+        for (listener_entity, listener) in query.iter(world) {
+            if !listener_matches(listener_entity, listener.channels, request.target) {
+                continue;
+            }
+            listeners.push(listener_entity);
+        }
+
+        for listener in listeners {
+            add_rumble_pulse(world, listener, &request);
+        }
+    }
+}
+
 fn process_squash_requests(world: &mut World) {
     let requests: Vec<RequestSquashStretch> = world
         .resource_mut::<Messages<RequestSquashStretch>>()
@@ -751,6 +795,17 @@ fn cleanup_empty_screen_pulse_runtimes(
     }
 }
 
+fn cleanup_empty_rumble_runtimes(
+    mut commands: Commands,
+    query: Query<(Entity, &rumble::RumbleRuntime)>,
+) {
+    for (entity, runtime) in &query {
+        if runtime.effects.is_empty() {
+            commands.entity(entity).remove::<rumble::RumbleRuntime>();
+        }
+    }
+}
+
 fn cleanup_empty_scale_runtimes(
     mut commands: Commands,
     query: Query<(Entity, &squash::ScaleEffectRuntime)>,
@@ -891,6 +946,31 @@ fn add_screen_pulse(world: &mut World, entity: Entity, request: &RequestFlash, f
         flash_alpha: request.intensity * factor,
         chromatic_aberration: request.chromatic_aberration * factor,
         vignette: request.vignette * factor,
+        tween: Tween {
+            delay_secs: 0.0,
+            duration_secs: request.duration_secs.max(f32::EPSILON),
+            easing: request.easing,
+            repeat: TweenRepeat::Once,
+        },
+        clock: request.clock,
+        elapsed_secs: 0.0,
+    });
+}
+
+fn add_rumble_pulse(world: &mut World, entity: Entity, request: &RequestRumble) {
+    let Ok(mut entity) = world.get_entity_mut(entity) else {
+        return;
+    };
+    if !entity.contains::<rumble::RumbleRuntime>() {
+        entity.insert((rumble::RumbleRuntime::default(), RumbleOutput::default()));
+    }
+
+    let mut runtime = entity
+        .get_mut::<rumble::RumbleRuntime>()
+        .expect("rumble runtime inserted above");
+    runtime.effects.push(rumble::ActiveRumblePulse {
+        low_frequency: request.low_frequency.clamp(0.0, 1.0),
+        high_frequency: request.high_frequency.clamp(0.0, 1.0),
         tween: Tween {
             delay_secs: 0.0,
             duration_secs: request.duration_secs.max(f32::EPSILON),

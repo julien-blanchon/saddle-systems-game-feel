@@ -14,6 +14,13 @@ struct RecipeCycle(u32);
 fn main() {
     let mut app = App::new();
     support::add_example_plugins(&mut app, "Game Feel Recipes", Color::srgb(0.05, 0.06, 0.09));
+    support::seed_example_pane(
+        &mut app,
+        support::ExampleFeelPane {
+            interval_secs: 1.35,
+            ..default()
+        },
+    );
     app.add_plugins(GameFeelPlugin::default());
     app.insert_resource(RecipeTimer(Timer::from_seconds(1.35, TimerMode::Repeating)));
     app.insert_resource(RecipeCycle::default());
@@ -34,12 +41,16 @@ fn main() {
 
 fn play_recipe_cycle(
     time: Res<Time>,
+    pane: Res<support::ExampleFeelPane>,
     mut timer: ResMut<RecipeTimer>,
     mut cycle: ResMut<RecipeCycle>,
     camera: Query<(Entity, &Transform), With<support::DemoCamera>>,
     target: Query<(Entity, &Transform), With<support::DemoTarget>>,
     mut recipes: MessageWriter<PlayFeedbackRecipe>,
 ) {
+    timer
+        .0
+        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.2)));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }

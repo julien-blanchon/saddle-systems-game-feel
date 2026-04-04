@@ -19,6 +19,13 @@ fn main() {
         "Game Feel Debug Showcase",
         Color::srgb(0.04, 0.05, 0.07),
     );
+    support::seed_example_pane(
+        &mut app,
+        support::ExampleFeelPane {
+            interval_secs: 1.0,
+            ..default()
+        },
+    );
     app.add_plugins(GameFeelPlugin::default());
     app.insert_resource(ShowcaseTimer(Timer::from_seconds(
         1.0,
@@ -42,6 +49,7 @@ fn main() {
 
 fn drive_showcase(
     time: Res<Time>,
+    pane: Res<support::ExampleFeelPane>,
     mut timer: ResMut<ShowcaseTimer>,
     mut cycle: ResMut<ShowcaseCycle>,
     camera: Query<Entity, With<support::DemoCamera>>,
@@ -49,6 +57,9 @@ fn drive_showcase(
     mut recoil: MessageWriter<RequestCameraImpulse>,
     mut recipes: MessageWriter<PlayFeedbackRecipe>,
 ) {
+    timer
+        .0
+        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.2)));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }
@@ -64,8 +75,8 @@ fn drive_showcase(
         0 => {
             recoil.write(RequestCameraImpulse {
                 target: ListenerTarget::Entity(camera),
-                translation: Vec3::new(-0.10, 0.04, 0.0),
-                rotation: Vec3::new(0.0, 0.0, -0.08),
+                translation: Vec3::new(-0.10, 0.04, 0.0) * pane.impulse_scale,
+                rotation: Vec3::new(0.0, 0.0, -0.08) * pane.impulse_scale,
                 fov: 0.0,
                 origin: None,
                 attenuation: None,

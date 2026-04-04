@@ -26,7 +26,7 @@ The pure layer owns stacking, attenuation, spring behavior, tween sampling, and 
 Gameplay messages
   -> recipe playback (optional)
   -> effect request processing
-  -> shake / punch / time-scale / flash / squash runtimes
+  -> shake / punch / time-scale / flash / rumble / squash runtimes
   -> public output components/resources
   -> built-in adapters (transform, projection, sprite, screen pulse)
   -> diagnostics
@@ -34,12 +34,17 @@ Gameplay messages
 
 More concretely:
 
-1. `AddTrauma`, `RequestCameraImpulse`, `RequestHitstop`, `RequestTimeScale`, `RequestFlash`, `RequestSquashStretch`, and `PlayFeedbackRecipe` enter through the message layer.
+1. `AddTrauma`, `RequestCameraImpulse`, `RequestHitstop`, `RequestTimeScale`, `RequestFlash`, `RequestRumble`, `RequestSquashStretch`, and `PlayFeedbackRecipe` enter through the message layer.
 2. Recipes expand into concrete request messages.
 3. Request processors resolve channels, attenuation, and per-target runtime state.
 4. Simulation systems advance effect queues and sampled outputs.
 5. Built-in adapters apply those outputs additively and reversibly.
 6. Cleanup systems drop empty runtime containers and maintain overlay ownership.
+
+Screen pulses now intentionally support two presentation modes:
+
+- `ScreenPulsePresentation::OutputOnly` keeps `ScreenPulseOutput` as pure data for downstream renderer crates.
+- `ScreenPulsePresentation::LegacyBuiltIn` also enables the crate's older UI-overlay and `ChromaticAberration` writeback path.
 
 ## Schedule Ordering
 
@@ -66,6 +71,7 @@ Generic output surfaces:
 - `PunchState`
 - `FlashOutput`
 - `ScreenPulseOutput`
+- `RumbleOutput`
 - `SquashStretchState`
 
 Built-in adapters:
@@ -73,13 +79,15 @@ Built-in adapters:
 - `Transform` writeback for shake, punch, and squash/stretch
 - `Projection::Perspective` FOV writeback for punch
 - `Sprite` flash writeback for `FlashOutput`
-- UI-overlay and `ChromaticAberration` writeback for `ScreenPulseOutput`
+- optional UI-overlay and `ChromaticAberration` writeback for `ScreenPulseOutput`
+- no built-in platform haptics backend; `RumbleOutput` intentionally stays as a portable output surface for downstream gamepad or platform adapters
 
 This means downstream projects can:
 
 - use the built-in adapters directly
 - ignore them and read the output surfaces themselves
 - mix both patterns in one game
+- keep game-feel authored separately while routing screen pulses into another crate's unified screen-effects stack
 
 ## Stacking Behavior
 
@@ -153,4 +161,3 @@ The crate verifies the boundary in four layers:
 - App-level integration tests for schedule injection, message entrypoints, and drift recovery
 - runnable standalone examples for focused manual smoke checks
 - a crate-local lab with E2E scenarios and screenshot gates
-

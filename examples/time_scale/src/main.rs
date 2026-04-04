@@ -13,6 +13,13 @@ fn main() {
         "Game Feel Time Scale",
         Color::srgb(0.04, 0.05, 0.09),
     );
+    support::seed_example_pane(
+        &mut app,
+        support::ExampleFeelPane {
+            interval_secs: 1.6,
+            ..default()
+        },
+    );
     app.add_plugins(GameFeelPlugin::default());
     app.insert_resource(TimeScaleTimer(Timer::from_seconds(
         1.6,
@@ -35,17 +42,21 @@ fn main() {
 
 fn pulse_time_scale(
     time: Res<Time>,
+    pane: Res<support::ExampleFeelPane>,
     mut timer: ResMut<TimeScaleTimer>,
     target: Query<Entity, With<support::DemoTarget>>,
     mut requests: MessageWriter<RequestTimeScale>,
 ) {
+    timer
+        .0
+        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.2)));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }
 
     requests.write(RequestTimeScale {
         target: TimeScaleTarget::World,
-        scale: 0.35,
+        scale: (1.0 - 0.65 * pane.flash_scale).clamp(0.05, 1.0),
         ramp_in_secs: 0.04,
         hold_secs: 0.14,
         ramp_out_secs: 0.26,
@@ -57,7 +68,7 @@ fn pulse_time_scale(
     if let Ok(target) = target.single() {
         requests.write(RequestTimeScale {
             target: TimeScaleTarget::Entity(target),
-            scale: 0.55,
+            scale: (1.0 - 0.45 * pane.flash_scale).clamp(0.05, 1.0),
             ramp_in_secs: 0.0,
             hold_secs: 0.24,
             ramp_out_secs: 0.20,

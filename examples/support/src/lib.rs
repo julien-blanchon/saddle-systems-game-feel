@@ -1,8 +1,48 @@
 use bevy::{post_process::effect_stack::ChromaticAberration, prelude::*};
+use bevy_flair::prelude::InlineStyle;
 use saddle_systems_game_feel::{
-    EntityTimeScale, GameFeelDiagnostics, GlobalTimeScale, IgnoreGlobalTimeScale, IgnoreHitstop,
-    PunchListener, ScreenPulseListener, ShakeListener, resolve_effective_time_scale,
+    EntityTimeScale, GameFeelConfig, GameFeelDiagnostics, GlobalTimeScale,
+    IgnoreGlobalTimeScale, IgnoreHitstop, PunchListener, RumbleListener, ScreenPulseListener,
+    ScreenPulsePresentation, ShakeListener, resolve_effective_time_scale,
 };
+use saddle_pane::prelude::*;
+
+const PANE_DARK_THEME_VARS: &[(&str, &str)] = &[
+    ("--pane-elevation-1", "#28292e"),
+    ("--pane-elevation-2", "#222327"),
+    ("--pane-elevation-3", "rgba(187, 188, 196, 0.10)"),
+    ("--pane-border", "#3c3d44"),
+    ("--pane-border-focus", "#7090b0"),
+    ("--pane-border-subtle", "#333438"),
+    ("--pane-text-primary", "#bbbcc4"),
+    ("--pane-text-secondary", "#78797f"),
+    ("--pane-text-muted", "#5c5d64"),
+    ("--pane-text-on-accent", "#ffffff"),
+    ("--pane-text-brighter", "#d0d1d8"),
+    ("--pane-text-monitor", "#9a9ba2"),
+    ("--pane-text-log", "#8a8b92"),
+    ("--pane-accent", "#4a6fa5"),
+    ("--pane-accent-hover", "#5a8fd5"),
+    ("--pane-accent-active", "#3a5f95"),
+    ("--pane-accent-subtle", "rgba(74, 111, 165, 0.15)"),
+    ("--pane-accent-fill", "rgba(74, 111, 165, 0.60)"),
+    ("--pane-accent-fill-hover", "rgba(90, 143, 213, 0.70)"),
+    ("--pane-accent-fill-active", "rgba(90, 143, 213, 0.80)"),
+    ("--pane-accent-checked", "rgba(74, 111, 165, 0.25)"),
+    ("--pane-accent-checked-hover", "rgba(74, 111, 165, 0.35)"),
+    ("--pane-accent-indicator", "rgba(74, 111, 165, 0.80)"),
+    ("--pane-accent-knob", "#7aacdf"),
+    ("--pane-widget-bg", "rgba(187, 188, 196, 0.10)"),
+    ("--pane-widget-hover", "rgba(187, 188, 196, 0.15)"),
+    ("--pane-widget-focus", "rgba(187, 188, 196, 0.20)"),
+    ("--pane-widget-active", "rgba(187, 188, 196, 0.25)"),
+    ("--pane-widget-bg-muted", "rgba(187, 188, 196, 0.06)"),
+    ("--pane-tab-hover-bg", "rgba(187, 188, 196, 0.06)"),
+    ("--pane-hover-bg", "rgba(255, 255, 255, 0.03)"),
+    ("--pane-active-bg", "rgba(255, 255, 255, 0.05)"),
+    ("--pane-popup-bg", "#1e1f24"),
+    ("--pane-bg-dark", "rgba(0, 0, 0, 0.25)"),
+];
 
 pub const WINDOW_WIDTH: u32 = 1280;
 pub const WINDOW_HEIGHT: u32 = 720;
@@ -34,8 +74,66 @@ pub struct MotionClock(pub f32);
 #[allow(dead_code)]
 pub struct HudLabel(pub String);
 
+#[derive(Resource, Debug, Clone, PartialEq, Pane)]
+#[pane(title = "Game Feel", position = "top-right")]
+pub struct ExampleFeelPane {
+    #[pane(slider, min = 0.2, max = 2.5, step = 0.05)]
+    pub interval_secs: f32,
+    #[pane(slider, min = 0.2, max = 2.0, step = 0.05)]
+    pub trauma_scale: f32,
+    #[pane(slider, min = 0.2, max = 2.0, step = 0.05)]
+    pub impulse_scale: f32,
+    #[pane(slider, min = 0.2, max = 2.0, step = 0.05)]
+    pub flash_scale: f32,
+    #[pane(slider, min = 0.2, max = 2.0, step = 0.05)]
+    pub chromatic_scale: f32,
+    #[pane(slider, min = 0.2, max = 2.0, step = 0.05)]
+    pub vignette_scale: f32,
+    #[pane(slider, min = 0.0, max = 8.0, step = 1.0)]
+    pub hitstop_hold_frames: f32,
+    #[pane(slider, min = 0.0, max = 12.0, step = 1.0)]
+    pub hitstop_recovery_frames: f32,
+    #[pane(slider, min = 0.08, max = 0.4, step = 0.01)]
+    pub overlay_border_fraction: f32,
+    #[pane(slider, min = 0.0, max = 1.0, step = 1.0)]
+    pub legacy_screen_fx: f32,
+    #[pane(monitor)]
+    pub active_screen_pulses: f32,
+    #[pane(monitor)]
+    pub active_rumble: f32,
+    #[pane(monitor)]
+    pub global_time_scale: f32,
+}
+
+impl Default for ExampleFeelPane {
+    fn default() -> Self {
+        Self {
+            interval_secs: 1.0,
+            trauma_scale: 1.0,
+            impulse_scale: 1.0,
+            flash_scale: 1.0,
+            chromatic_scale: 1.0,
+            vignette_scale: 1.0,
+            hitstop_hold_frames: 3.0,
+            hitstop_recovery_frames: 5.0,
+            overlay_border_fraction: 0.18,
+            legacy_screen_fx: 1.0,
+            active_screen_pulses: 0.0,
+            active_rumble: 0.0,
+            global_time_scale: 1.0,
+        }
+    }
+}
+
+#[derive(Resource, Clone)]
+struct ExampleFeelPaneBootstrap(ExampleFeelPane);
+
 pub fn add_example_plugins(app: &mut App, title: &str, clear_color: Color) {
     app.insert_resource(ClearColor(clear_color));
+    app.insert_resource(GameFeelConfig {
+        screen_presentation: ScreenPulsePresentation::LegacyBuiltIn,
+        ..default()
+    });
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             title: title.into(),
@@ -44,6 +142,30 @@ pub fn add_example_plugins(app: &mut App, title: &str, clear_color: Color) {
         }),
         ..default()
     }));
+    install_pane(app);
+}
+
+pub fn install_pane(app: &mut App) {
+    if !app.is_plugin_added::<PanePlugin>() {
+        app.add_plugins((
+            bevy_flair::FlairPlugin,
+            bevy_input_focus::InputDispatchPlugin,
+            bevy_ui_widgets::UiWidgetsPlugins,
+            bevy_input_focus::tab_navigation::TabNavigationPlugin,
+            PanePlugin,
+        ));
+    }
+
+    app.register_pane::<ExampleFeelPane>()
+        .add_systems(
+            PreUpdate,
+            (prime_pane_theme_vars, apply_bootstrapped_pane, sync_game_feel_config).chain(),
+        )
+        .add_systems(PostUpdate, reflect_game_feel_monitors);
+}
+
+pub fn seed_example_pane(app: &mut App, pane: ExampleFeelPane) {
+    app.insert_resource(ExampleFeelPaneBootstrap(pane));
 }
 
 pub fn setup_2d_scene(mut commands: Commands) {
@@ -54,6 +176,7 @@ pub fn setup_2d_scene(mut commands: Commands) {
         ShakeListener::default(),
         PunchListener::default(),
         ScreenPulseListener::default(),
+        RumbleListener::default(),
         ChromaticAberration::default(),
         Transform::from_xyz(0.0, 0.0, 10.0),
     ));
@@ -191,7 +314,7 @@ pub fn update_hud(
     };
 
     text.0 = format!(
-        "{}\nGlobal scale {:.2} (base {:.2}, hitstop {:.2})\nActive shake {}  punch {}  flashes {}  screen {}\nScale fx {}  recipes {}\nBlue orb ignores global scaling for reference",
+        "{}\nGlobal scale {:.2} (base {:.2}, hitstop {:.2})\nActive shake {}  punch {}  flashes {}  screen {}  rumble {}\nScale fx {}  recipes {}\nBlue orb ignores global scaling for reference",
         label.0,
         global.scale,
         global.base_scale,
@@ -200,7 +323,49 @@ pub fn update_hud(
         diagnostics.active_punch_listeners,
         diagnostics.active_entity_flashes,
         diagnostics.active_screen_pulses,
+        diagnostics.active_rumble_listeners,
         diagnostics.active_scale_effects,
         diagnostics.active_recipe_players,
     );
+}
+
+fn prime_pane_theme_vars(mut panes: Query<&mut InlineStyle, Added<PaneRoot>>) {
+    for mut style in &mut panes {
+        for &(key, value) in PANE_DARK_THEME_VARS {
+            style.set(key, value.to_owned());
+        }
+    }
+}
+
+fn apply_bootstrapped_pane(
+    bootstrap: Option<Res<ExampleFeelPaneBootstrap>>,
+    mut pane: ResMut<ExampleFeelPane>,
+) {
+    let Some(bootstrap) = bootstrap else {
+        return;
+    };
+
+    if *pane == ExampleFeelPane::default() {
+        *pane = bootstrap.0.clone();
+    }
+}
+
+fn sync_game_feel_config(pane: Res<ExampleFeelPane>, mut config: ResMut<GameFeelConfig>) {
+    config.overlay_border_fraction = pane.overlay_border_fraction.clamp(0.02, 0.45);
+    config.screen_presentation = if pane.legacy_screen_fx.round() as i32 == 0 {
+        ScreenPulsePresentation::OutputOnly
+    } else {
+        ScreenPulsePresentation::LegacyBuiltIn
+    };
+}
+
+fn reflect_game_feel_monitors(
+    diagnostics: Res<GameFeelDiagnostics>,
+    global: Res<GlobalTimeScale>,
+    mut pane: ResMut<ExampleFeelPane>,
+) {
+    let pane = pane.bypass_change_detection();
+    pane.active_screen_pulses = diagnostics.active_screen_pulses as f32;
+    pane.active_rumble = diagnostics.active_rumble_listeners as f32;
+    pane.global_time_scale = global.scale;
 }

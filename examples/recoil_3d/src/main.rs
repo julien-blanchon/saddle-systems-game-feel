@@ -1,4 +1,5 @@
 use bevy::{post_process::effect_stack::ChromaticAberration, prelude::*};
+use saddle_systems_game_feel_example_support as support;
 use saddle_systems_game_feel::{
     AddTrauma, GameFeelPlugin, ImpulseSpace, ListenerTarget, PunchListener, RequestCameraImpulse,
     ScreenPulseListener, ShakeListener,
@@ -20,8 +21,8 @@ struct MovingCrate;
 struct ExampleHud;
 
 fn main() {
-    App::new()
-        .insert_resource(ClearColor(Color::srgb(0.03, 0.04, 0.07)))
+    let mut app = App::new();
+    app.insert_resource(ClearColor(Color::srgb(0.03, 0.04, 0.07)))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Game Feel 3D Recoil".into(),
@@ -29,8 +30,16 @@ fn main() {
                 ..default()
             }),
             ..default()
-        }))
-        .add_plugins(GameFeelPlugin::default())
+        }));
+    support::install_pane(&mut app);
+    support::seed_example_pane(
+        &mut app,
+        support::ExampleFeelPane {
+            interval_secs: 0.70,
+            ..default()
+        },
+    );
+    app.add_plugins(GameFeelPlugin::default())
         .insert_resource(RecoilTimer(Timer::from_seconds(0.70, TimerMode::Repeating)))
         .add_systems(Startup, setup)
         .add_systems(Update, (animate_target, trigger_recoil, update_hud))
@@ -144,11 +153,15 @@ fn animate_target(time: Res<Time>, mut query: Query<&mut Transform, With<MovingC
 
 fn trigger_recoil(
     time: Res<Time>,
+    pane: Res<support::ExampleFeelPane>,
     mut timer: ResMut<RecoilTimer>,
     camera: Query<Entity, With<RecoilCamera>>,
     mut trauma: MessageWriter<AddTrauma>,
     mut impulse: MessageWriter<RequestCameraImpulse>,
 ) {
+    timer
+        .0
+        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.2)));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }
@@ -159,18 +172,18 @@ fn trigger_recoil(
 
     trauma.write(AddTrauma {
         target: ListenerTarget::Entity(camera),
-        trauma: 0.10,
+        trauma: 0.10 * pane.trauma_scale,
         origin: None,
         attenuation: None,
         propagation_speed: None,
-        directional_bias: Vec3::new(0.02, -0.01, 0.0),
+        directional_bias: Vec3::new(0.02, -0.01, 0.0) * pane.impulse_scale,
         profile_override: None,
     });
     impulse.write(RequestCameraImpulse {
         target: ListenerTarget::Entity(camera),
-        translation: Vec3::new(0.0, 0.02, 0.12),
-        rotation: Vec3::new(-0.10, 0.02, 0.0),
-        fov: 0.03,
+        translation: Vec3::new(0.0, 0.02, 0.12) * pane.impulse_scale,
+        rotation: Vec3::new(-0.10, 0.02, 0.0) * pane.impulse_scale,
+        fov: 0.03 * pane.flash_scale,
         origin: None,
         attenuation: None,
         propagation_speed: None,

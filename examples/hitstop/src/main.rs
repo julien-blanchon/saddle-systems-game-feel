@@ -12,6 +12,13 @@ struct ImpactTimer(Timer);
 fn main() {
     let mut app = App::new();
     support::add_example_plugins(&mut app, "Game Feel Hitstop", Color::srgb(0.06, 0.05, 0.08));
+    support::seed_example_pane(
+        &mut app,
+        support::ExampleFeelPane {
+            interval_secs: 1.2,
+            ..default()
+        },
+    );
     app.add_plugins(GameFeelPlugin::default());
     app.insert_resource(ImpactTimer(Timer::from_seconds(1.2, TimerMode::Repeating)));
     app.insert_resource(support::HudLabel(
@@ -31,6 +38,7 @@ fn main() {
 
 fn trigger_impact(
     time: Res<Time>,
+    pane: Res<support::ExampleFeelPane>,
     mut timer: ResMut<ImpactTimer>,
     camera: Query<Entity, With<support::DemoCamera>>,
     target: Query<Entity, With<support::DemoTarget>>,
@@ -39,6 +47,9 @@ fn trigger_impact(
     mut flash: MessageWriter<RequestFlash>,
     mut squash: MessageWriter<RequestSquashStretch>,
 ) {
+    timer
+        .0
+        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.2)));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }
@@ -52,17 +63,17 @@ fn trigger_impact(
 
     trauma.write(AddTrauma {
         target: ListenerTarget::Entity(camera),
-        trauma: 0.32,
+        trauma: 0.32 * pane.trauma_scale,
         origin: None,
         attenuation: None,
         propagation_speed: None,
-        directional_bias: Vec3::new(0.10, -0.02, 0.0),
+        directional_bias: Vec3::new(0.10, -0.02, 0.0) * pane.impulse_scale,
         profile_override: None,
     });
     hitstop.write(RequestHitstop {
         target: TimeScaleTarget::World,
-        hold_frames: 3,
-        recovery_frames: 5,
+        hold_frames: pane.hitstop_hold_frames.round().max(0.0) as u32,
+        recovery_frames: pane.hitstop_recovery_frames.round().max(0.0) as u32,
         ..RequestHitstop::new(TimeScaleTarget::World, 3)
     });
     flash.write(RequestFlash {
@@ -71,13 +82,13 @@ fn trigger_impact(
             screen: ListenerTarget::Entity(camera),
         },
         color: Color::WHITE,
-        intensity: 0.45,
-        chromatic_aberration: 0.05,
-        vignette: 0.12,
+        intensity: 0.45 * pane.flash_scale,
+        chromatic_aberration: 0.05 * pane.chromatic_scale,
+        vignette: 0.12 * pane.vignette_scale,
         ..RequestFlash::new(FlashTarget::Entity(target), Color::WHITE, 0.45)
     });
     squash.write(RequestSquashStretch::new(
         target,
-        Vec3::new(1.18, 0.82, 1.0),
+        Vec3::splat(1.0).lerp(Vec3::new(1.18, 0.82, 1.0), pane.impulse_scale.clamp(0.0, 2.0)),
     ));
 }

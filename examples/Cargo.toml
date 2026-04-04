@@ -2,6 +2,7 @@
 members = [
     "support",
     "basic",
+    "combo_system",
     "hitstop",
     "recipes",
     "time_scale",

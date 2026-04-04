@@ -1,6 +1,6 @@
 # Saddle Systems Game Feel
 
-Reusable Bevy feedback runtime for impactful moment-to-moment response: trauma shake, hitstop, camera punch, time scaling, flash pulses, squash and stretch, and data-driven recipes.
+Reusable Bevy feedback runtime for impactful moment-to-moment response: trauma shake, hitstop, camera punch, time scaling, flash pulses, rumble outputs, squash and stretch, and data-driven recipes.
 
 The crate stays project-agnostic. It does not depend on `game_core`, `Screen`, `GameSet`, asset paths, or any gameplay vocabulary. Consumer crates emit generic feedback messages, and `saddle-systems-game-feel` handles stacking, timing, cleanup, and the built-in transform/sprite/screen adapters.
 
@@ -132,17 +132,21 @@ fn trigger_hit(
 | --- | --- |
 | `GameFeelPlugin` | Registers the runtime with injectable activate, deactivate, and update schedules |
 | `GameFeelSystems` | Public ordering hooks: `ProcessRequests`, `UpdateSimulation`, `ApplyOutputs`, `Cleanup` |
+| `ScreenPulsePresentation` | Chooses output-only screen pulses or the legacy built-in overlay/chromatic adapter |
 | `AddTrauma` | Request trauma-based shake on listeners |
 | `RequestCameraImpulse` | Request spring-damped translational / rotational / FOV punch |
 | `RequestHitstop` / `RequestSplitHitstop` | Frame-counted freeze requests for world or targeted entities |
 | `RequestTimeScale` | Ramp/hold/recover time-scale requests for world or targeted entities |
 | `RequestFlash` | Entity flash plus screen pulse request with optional distance attenuation |
+| `RequestRumble` | Output-only haptics / rumble request for one listener, a channel group, or all listeners |
 | `RequestSquashStretch` | Message-driven scale feedback on a target entity |
 | `PlayFeedbackRecipe` | Single trigger message for named feedback recipes |
-| `ShakeListener`, `PunchListener`, `ScreenPulseListener` | Opt-in listeners for shake, punch, and screen effects |
+| `ShakeListener`, `PunchListener`, `ScreenPulseListener`, `RumbleListener` | Opt-in listeners for shake, punch, screen effects, and haptics |
 | `GlobalTimeScale`, `EntityTimeScale` | Public timing surfaces for consumer gameplay systems |
-| `ShakeState`, `PunchState`, `FlashOutput`, `ScreenPulseOutput`, `SquashStretchState` | Inspectable output surfaces and adapter bridge points |
-| `FeedbackRecipeLibrary`, `FeedbackRecipe`, `FeedbackAction` | Data-driven recipe authoring surface |
+| `ShakeState`, `PunchState`, `FlashOutput`, `ScreenPulseOutput`, `RumbleOutput`, `SquashStretchState` | Inspectable output surfaces and adapter bridge points |
+| `FeedbackRecipeLibrary`, `FeedbackRecipe`, `FeedbackAction`, `FeedbackCondition`, `FeedbackRecipeRepeat` | Data-driven recipe authoring surface, conditional playback, and loop control |
+| `RecipeRumble` | Recipe-authored haptics output |
+| `RecipeHooks`, `FeedbackHookTriggered` | Bridge recipe steps into audio, particles, or custom renderer integrations |
 | `Tween`, `TweenRepeat`, `AttackSustainDecay` | Lightweight easing and envelope helpers reused internally and available to consumers |
 
 ## Stacking Rules
@@ -173,9 +177,11 @@ The runtime ships with a generic core plus a few concrete adapters:
 - transform application for `ShakeState`, `PunchState`, and `SquashStretchState`
 - perspective FOV punch for `Projection::Perspective`
 - sprite-color flash application from `FlashOutput`
-- screen overlay and chromatic aberration application from `ScreenPulseOutput`
+- optional screen overlay and chromatic aberration application from `ScreenPulseOutput` when `GameFeelConfig.screen_presentation = ScreenPulsePresentation::LegacyBuiltIn`
 
-`FlashOutput` remains the material-style extension point for projects that want custom shader or material adapters.
+`FlashOutput` remains the material-style extension point for projects that want custom shader or material adapters. `ScreenPulseOutput` is likewise the recommended bridge into crates like `saddle-rendering-screen-effects` when projects want one unified post-process stack instead of multiple parallel overlay systems.
+
+Built-in recipes also emit `FeedbackHookTriggered` cue messages so audio, particles, and other presentation layers can subscribe without taking a hard dependency on any specific backend.
 
 ## Examples
 
@@ -184,9 +190,12 @@ The runtime ships with a generic core plus a few concrete adapters:
 | `basic` | Minimal self-running shake and punch loop | `cargo run -p saddle-systems-game-feel-example-basic` |
 | `hitstop` | Hitstop plus flash plus squash on a moving target | `cargo run -p saddle-systems-game-feel-example-hitstop` |
 | `recipes` | Built-in recipe playback loop | `cargo run -p saddle-systems-game-feel-example-recipes` |
+| `combo_system` | Two-cycle finisher combo that exercises conditional recipes, hook cues, and rumble outputs | `cargo run -p saddle-systems-game-feel-example-combo-system` |
 | `time_scale` | World slow-mo with an entity that ignores global scaling | `cargo run -p saddle-systems-game-feel-example-time_scale` |
 | `recoil_3d` | Perspective-camera recoil example proving 3D transform and FOV punch support | `cargo run -p saddle-systems-game-feel-example-recoil_3d` |
 | `debug_showcase` | Rich self-running showcase of recoil, impact, explosion, and reward pulses | `cargo run -p saddle-systems-game-feel-example-debug_showcase` |
+
+Every shipped example now includes a `saddle-pane` panel for live timing and intensity tuning.
 
 ## Workspace Lab
 
@@ -198,6 +207,8 @@ cargo run -p saddle-systems-game-feel-lab
 
 It is the primary BRP and E2E verification target for this crate.
 
+The lab now verifies recipe step playback, recipe hook emission, and rumble output activity, so the output-only integration path is exercised alongside the visual feedback path.
+
 ## More Docs
 
 - [Architecture](docs/architecture.md)
@@ -206,6 +217,7 @@ It is the primary BRP and E2E verification target for this crate.
 ## Current Limitations
 
 - The built-in flash adapter only writes `Sprite` color directly. Material or shader-backed flash should read `FlashOutput` and apply it in project-specific render code.
+- Screen pulses default to `ScreenPulsePresentation::OutputOnly` so projects can bridge them into a shared post-process stack. The legacy overlay/chromatic adapter still exists for sandboxes and examples.
 - Time scaling is exposed as public resources/components; the crate does not mutate Bevy's global `Time<Virtual>` or freeze arbitrary gameplay systems automatically.
 - The crate now ships both 2D showcase examples and a focused 3D recoil example, but the crate-local lab still concentrates on one deterministic 2D scene so E2E screenshots stay comparable.
 - Projects that need custom 3D material flashes or heavier renderer-specific post-processing will still usually add project-specific adapters on top of `FlashOutput` or `ScreenPulseOutput`.

@@ -167,6 +167,30 @@ impl RequestFlash {
 }
 
 #[derive(Message, Reflect, Clone, Debug, PartialEq)]
+pub struct RequestRumble {
+    pub target: ListenerTarget,
+    pub low_frequency: f32,
+    pub high_frequency: f32,
+    pub duration_secs: f32,
+    pub easing: EaseFunction,
+    pub clock: EffectTimeDomain,
+}
+
+impl RequestRumble {
+    #[must_use]
+    pub fn new(target: ListenerTarget, low_frequency: f32, high_frequency: f32) -> Self {
+        Self {
+            target,
+            low_frequency,
+            high_frequency,
+            duration_secs: 0.18,
+            easing: EaseFunction::SineOut,
+            clock: EffectTimeDomain::Unscaled,
+        }
+    }
+}
+
+#[derive(Message, Reflect, Clone, Debug, PartialEq)]
 pub struct RequestSquashStretch {
     pub target: Entity,
     pub peak_scale: Vec3,

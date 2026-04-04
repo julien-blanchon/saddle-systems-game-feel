@@ -1,6 +1,6 @@
 use crate::{
     channels::GameFeelChannels,
-    config::{EffectTimeDomain, GameFeelConfig, GameFeelDiagnostics},
+    config::{EffectTimeDomain, GameFeelConfig, GameFeelDiagnostics, ScreenPulsePresentation},
     time_scale::GlobalTimeScale,
     tween::Tween,
 };
@@ -225,6 +225,10 @@ pub(crate) fn ensure_screen_overlays(
     config: Res<GameFeelConfig>,
     query: Query<(Entity, Option<&ScreenOverlayNodes>), With<ScreenPulseListener>>,
 ) {
+    if !uses_legacy_screen_presentation(&config) {
+        return;
+    }
+
     for (listener, nodes) in &query {
         if nodes.is_some() {
             continue;
@@ -328,11 +332,12 @@ pub(crate) fn ensure_screen_overlays(
 
 pub(crate) fn cleanup_orphaned_overlays(
     mut commands: Commands,
+    config: Res<GameFeelConfig>,
     listener_query: Query<(), With<ScreenPulseListener>>,
     root_query: Query<(Entity, &ScreenOverlayOwner), With<ScreenOverlayRoot>>,
 ) {
     for (root, owner) in &root_query {
-        if listener_query.get(owner.0).is_err() {
+        if !uses_legacy_screen_presentation(&config) || listener_query.get(owner.0).is_err() {
             commands.entity(root).despawn();
         }
     }
@@ -395,6 +400,7 @@ pub(crate) fn restore_presented_chromatic(
 }
 
 pub(crate) fn apply_chromatic_outputs(
+    config: Res<GameFeelConfig>,
     mut commands: Commands,
     mut query: Query<
         (
@@ -406,6 +412,10 @@ pub(crate) fn apply_chromatic_outputs(
         With<ScreenPulseListener>,
     >,
 ) {
+    if !uses_legacy_screen_presentation(&config) {
+        return;
+    }
+
     for (entity, output, mut chromatic, state) in &mut query {
         if output.chromatic_aberration <= 0.001 {
             continue;
@@ -440,6 +450,10 @@ pub(crate) fn apply_screen_overlay_outputs(
     listener_query: Query<(&ScreenPulseOutput, &ScreenOverlayNodes)>,
     mut colors: Query<&mut BackgroundColor>,
 ) {
+    if !uses_legacy_screen_presentation(&config) {
+        return;
+    }
+
     for (output, nodes) in &listener_query {
         let flash = output.color.to_srgba();
         if let Ok(mut color) = colors.get_mut(nodes.flash_fill) {
@@ -475,6 +489,13 @@ fn mix_color(base: Color, flash: Color, amount: f32) -> Color {
         base.green + (flash.green - base.green) * amount,
         base.blue + (flash.blue - base.blue) * amount,
         base.alpha + (flash.alpha - base.alpha) * amount,
+    )
+}
+
+fn uses_legacy_screen_presentation(config: &GameFeelConfig) -> bool {
+    matches!(
+        config.screen_presentation,
+        ScreenPulsePresentation::LegacyBuiltIn
     )
 }
 

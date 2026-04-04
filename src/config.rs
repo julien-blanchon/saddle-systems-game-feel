@@ -40,9 +40,17 @@ impl Default for DistanceAttenuation {
     }
 }
 
+#[derive(Reflect, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ScreenPulsePresentation {
+    #[default]
+    OutputOnly,
+    LegacyBuiltIn,
+}
+
 #[derive(Resource, Reflect, Clone, Debug)]
 #[reflect(Resource, Default)]
 pub struct GameFeelConfig {
+    pub screen_presentation: ScreenPulsePresentation,
     pub overlay_flash_color: Color,
     pub overlay_vignette_color: Color,
     pub overlay_border_fraction: f32,
@@ -52,6 +60,7 @@ pub struct GameFeelConfig {
 impl Default for GameFeelConfig {
     fn default() -> Self {
         Self {
+            screen_presentation: ScreenPulsePresentation::OutputOnly,
             overlay_flash_color: Color::WHITE,
             overlay_vignette_color: Color::BLACK,
             overlay_border_fraction: 0.18,
@@ -67,6 +76,7 @@ pub struct GameFeelDiagnostics {
     pub active_shake_listeners: usize,
     pub active_punch_listeners: usize,
     pub active_screen_pulses: usize,
+    pub active_rumble_listeners: usize,
     pub active_entity_flashes: usize,
     pub active_scale_effects: usize,
     pub active_recipe_players: usize,
