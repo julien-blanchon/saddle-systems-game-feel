@@ -1,6 +1,7 @@
 mod channels;
 mod config;
 mod flash;
+mod knockback;
 mod messages;
 mod punch;
 mod recipe;
@@ -12,20 +13,23 @@ mod tween;
 
 pub use channels::GameFeelChannels;
 pub use config::{
-    DistanceAttenuation, EffectTimeDomain, GameFeelConfig, GameFeelDiagnostics,
+    DistanceAttenuation, EffectTimeDomain, GameFeelConfig, GameFeelDiagnostics, GameFeelToggles,
     ScreenPulsePresentation,
 };
 pub use flash::{FlashOutput, FlashTarget, ScreenPulseListener, ScreenPulseOutput};
+pub use knockback::{KnockbackReceiver, KnockbackState};
 pub use messages::{
     AddTrauma, ListenerTarget, PlayFeedbackRecipe, RequestCameraImpulse, RequestFlash,
-    RequestHitstop, RequestRumble, RequestSplitHitstop, RequestSquashStretch, RequestTimeScale,
+    RequestHitstop, RequestKnockback, RequestRumble, RequestSplitHitstop, RequestSquashStretch,
+    RequestTimeScale,
 };
 pub use punch::{ImpulseSpace, PunchListener, PunchProfile, PunchState, SpringSettings};
 pub use recipe::{
     EntitySelector, FeedbackAction, FeedbackCondition, FeedbackContext, FeedbackHookTriggered,
     FeedbackRecipe, FeedbackRecipeLibrary, FeedbackRecipeRepeat, FeedbackStep, FeedbackStepFired,
     ListenerSelector, RecipeFlash, RecipeFlashTarget, RecipeHitstop, RecipeHooks, RecipeImpulse,
-    RecipeRumble, RecipeSquashStretch, RecipeTimeScale, RecipeTrauma, TimeScaleSelector,
+    RecipeKnockback, RecipeRumble, RecipeSquashStretch, RecipeTimeScale, RecipeTrauma,
+    TimeScaleSelector,
 };
 pub use rumble::{RumbleListener, RumbleOutput};
 pub use shake::{ShakeAccessibility, ShakeBudget, ShakeListener, ShakeProfile, ShakeState};
@@ -112,6 +116,7 @@ impl Plugin for GameFeelPlugin {
         app.init_resource::<GameFeelRuntimeState>()
             .init_resource::<GameFeelConfig>()
             .init_resource::<GameFeelDiagnostics>()
+            .init_resource::<GameFeelToggles>()
             .init_resource::<GlobalTimeScale>()
             .init_resource::<ShakeAccessibility>()
             .init_resource::<shake::PendingShakeQueue>()
@@ -127,6 +132,7 @@ impl Plugin for GameFeelPlugin {
             .add_message::<RequestFlash>()
             .add_message::<RequestRumble>()
             .add_message::<RequestSquashStretch>()
+            .add_message::<RequestKnockback>()
             .add_message::<PlayFeedbackRecipe>()
             .add_message::<FeedbackStepFired>()
             .add_message::<FeedbackHookTriggered>()
@@ -154,7 +160,10 @@ impl Plugin for GameFeelPlugin {
             .register_type::<HitstopStacking>()
             .register_type::<IgnoreGlobalTimeScale>()
             .register_type::<IgnoreHitstop>()
+            .register_type::<GameFeelToggles>()
             .register_type::<ImpulseSpace>()
+            .register_type::<KnockbackReceiver>()
+            .register_type::<KnockbackState>()
             .register_type::<ListenerSelector>()
             .register_type::<ListenerTarget>()
             .register_type::<PlayFeedbackRecipe>()
@@ -165,6 +174,7 @@ impl Plugin for GameFeelPlugin {
             .register_type::<RecipeFlashTarget>()
             .register_type::<RecipeHooks>()
             .register_type::<RecipeHitstop>()
+            .register_type::<RecipeKnockback>()
             .register_type::<RecipeImpulse>()
             .register_type::<RecipeRumble>()
             .register_type::<RecipeSquashStretch>()
@@ -173,6 +183,7 @@ impl Plugin for GameFeelPlugin {
             .register_type::<RequestCameraImpulse>()
             .register_type::<RequestFlash>()
             .register_type::<RequestHitstop>()
+            .register_type::<RequestKnockback>()
             .register_type::<RequestRumble>()
             .register_type::<RequestSplitHitstop>()
             .register_type::<RequestSquashStretch>()
@@ -263,6 +274,7 @@ impl Plugin for GameFeelPlugin {
                     process_flash_requests,
                     process_rumble_requests,
                     process_squash_requests,
+                    knockback::process_knockback_requests,
                 )
                     .chain()
                     .in_set(GameFeelSystems::ProcessRequests),
@@ -280,6 +292,7 @@ impl Plugin for GameFeelPlugin {
                     flash::update_screen_pulse_outputs,
                     rumble::update_rumble_outputs,
                     squash::update_scale_outputs,
+                    knockback::update_knockback_outputs,
                 )
                     .chain()
                     .in_set(GameFeelSystems::UpdateSimulation),
@@ -288,6 +301,7 @@ impl Plugin for GameFeelPlugin {
                     cleanup_empty_screen_pulse_runtimes,
                     cleanup_empty_rumble_runtimes,
                     cleanup_empty_scale_runtimes,
+                    knockback::cleanup_knockback,
                     flash::cleanup_orphaned_overlays,
                     flash::ensure_screen_overlays.run_if(runtime_is_active),
                 )

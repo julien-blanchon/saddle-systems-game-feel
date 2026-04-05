@@ -1,9 +1,9 @@
 use bevy::{post_process::effect_stack::ChromaticAberration, prelude::*};
-use saddle_systems_game_feel_example_support as support;
 use saddle_systems_game_feel::{
     AddTrauma, GameFeelPlugin, ImpulseSpace, ListenerTarget, PunchListener, RequestCameraImpulse,
     ScreenPulseListener, ShakeListener,
 };
+use saddle_systems_game_feel_example_support as support;
 
 const WINDOW_WIDTH: u32 = 1280;
 const WINDOW_HEIGHT: u32 = 720;
@@ -159,9 +159,9 @@ fn trigger_recoil(
     mut trauma: MessageWriter<AddTrauma>,
     mut impulse: MessageWriter<RequestCameraImpulse>,
 ) {
-    timer
-        .0
-        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.2)));
+    timer.0.set_duration(std::time::Duration::from_secs_f32(
+        pane.interval_secs.max(0.2),
+    ));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }

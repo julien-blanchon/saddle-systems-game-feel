@@ -341,6 +341,7 @@ fn drive_lab_mode(
                     origin: Some(target_transform.translation),
                     direction: Vec3::new(1.0, -0.2, 0.0),
                     channels: GameFeelChannels::WEAPON,
+                    ..default()
                 },
             });
             control.showcase_index += 1;

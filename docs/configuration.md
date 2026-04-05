@@ -30,6 +30,24 @@ Guidance:
 - use `AMBIENT` for rumbles or long-tail environmental feel
 - use `UI` for reward pulses or icon emphasis
 
+## `GameFeelToggles`
+
+Runtime resource that enables or disables individual effect categories. All fields default to `true`.
+
+| Field | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `shake_enabled` | `bool` | `true` | Enables/disables trauma shake processing |
+| `punch_enabled` | `bool` | `true` | Enables/disables camera punch processing |
+| `flash_enabled` | `bool` | `true` | Enables/disables entity and screen flash processing |
+| `hitstop_enabled` | `bool` | `true` | Enables/disables hitstop processing |
+| `time_scale_enabled` | `bool` | `true` | Enables/disables time scale ramp processing |
+| `rumble_enabled` | `bool` | `true` | Enables/disables rumble output processing |
+| `squash_stretch_enabled` | `bool` | `true` | Enables/disables squash/stretch processing |
+| `knockback_enabled` | `bool` | `true` | Enables/disables knockback processing |
+| `screen_pulse_enabled` | `bool` | `true` | Enables/disables screen pulse processing |
+
+Use `GameFeelToggles::all_disabled()` and `GameFeelToggles::all_enabled()` for bulk toggling.
+
 ## `ShakeAccessibility`
 
 | Field | Type | Default | Valid Range | Effect |
@@ -170,6 +188,33 @@ Pair `EntityTimeScale` with `resolve_effective_time_scale(...)` when consumer mo
 | `direction` | Optional world/local direction used for directional stretch |
 | `directional_magnitude` | Extra directional stretch amount |
 
+## Knockback Requests
+
+`RequestKnockback` fields:
+
+| Field | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `target` | `Entity` | required | The entity to displace |
+| `direction` | `Vec3` | required | Direction of displacement (normalized internally) |
+| `force` | `f32` | required | Peak displacement magnitude in world units |
+| `duration_secs` | `f32` | `0.3` | How long the displacement decays |
+| `easing` | `EaseFunction` | `QuadraticOut` | Envelope curve for displacement decay |
+| `clock` | `EffectTimeDomain` | `Unscaled` | Timing domain |
+
+`KnockbackReceiver` fields:
+
+| Field | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `max_displacement` | `f32` | `500.0` | Maximum displacement magnitude clamp |
+
+`KnockbackState` is the output surface:
+
+| Field | Type | Effect |
+| --- | --- | --- |
+| `displacement` | `Vec3` | Current summed displacement from all active knockback effects |
+
+The crate computes displacement only. Consumer systems read `KnockbackState.displacement` and apply it however they need (add to transform, feed to physics, etc.).
+
 ## Recipes
 
 The built-in `FeedbackRecipeLibrary::default()` includes:
@@ -178,6 +223,10 @@ The built-in `FeedbackRecipeLibrary::default()` includes:
 - `heavy_impact`
 - `explosion`
 - `reward_ping`
+- `weapon_fire`
+- `landing_impact`
+- `dash_burst`
+- `parry`
 
 Recipe authoring types:
 
@@ -191,6 +240,7 @@ Recipe authoring types:
 - `RecipeTimeScale`
 - `RecipeRumble`
 - `RecipeSquashStretch`
+- `RecipeKnockback`
 - `RecipeHooks`
 
 Additional recipe controls:
@@ -206,6 +256,8 @@ Important defaults:
 - `FeedbackRecipeLibrary::empty()` gives a truly blank library
 - Built-in recipes emit `FeedbackHookTriggered` for audio/particle integration without hard-coding any backend dependency
 - The built-in impact-oriented recipes now also emit `RequestRumble` so downstream input or platform layers can mirror the authored feedback mix
+- `FeedbackContext.intensity_multiplier` scales all magnitude-like values (trauma, impulse vectors, flash intensity, rumble frequencies, squash deviation, knockback force) but does not affect timing or stacking policy
+- `PlayFeedbackRecipe::new("name").with_intensity(0.5)` is a convenient shorthand for setting `intensity_multiplier`
 
 ## Tuning Notes
 
@@ -235,3 +287,32 @@ If gameplay systems should obey feel timing:
 3. multiply your own authored motion or animation clocks by that value
 
 That keeps ownership explicit and avoids hidden global-time side effects.
+
+### Builder API
+
+All message types support a fluent builder pattern for concise construction:
+
+```rust
+// Instead of struct literal with many fields:
+trauma.write(
+    AddTrauma::new(ListenerTarget::Entity(camera), 0.28)
+        .with_directional_bias(Vec3::new(0.08, -0.02, 0.0))
+        .with_origin(hit_pos),
+);
+
+hitstop.write(
+    RequestHitstop::new(TimeScaleTarget::World, 3)
+        .with_recovery(4)
+        .with_stacking(HitstopStacking::Max),
+);
+
+recipe.write(
+    PlayFeedbackRecipe::new("heavy_impact")
+        .with_listener(camera)
+        .with_target(target)
+        .with_channels(GameFeelChannels::WEAPON)
+        .with_intensity(0.8),
+);
+```
+
+Each builder method returns `Self`, so they chain naturally. All fields not set via builders use their struct defaults.

@@ -4,7 +4,7 @@ use crate::{
     flash::FlashTarget,
     messages::{
         AddTrauma, ListenerTarget, PlayFeedbackRecipe, RequestCameraImpulse, RequestFlash,
-        RequestHitstop, RequestRumble, RequestSquashStretch, RequestTimeScale,
+        RequestHitstop, RequestKnockback, RequestRumble, RequestSquashStretch, RequestTimeScale,
     },
     punch::ImpulseSpace,
     time_scale::{HitstopStacking, TimeScaleTarget},
@@ -12,7 +12,7 @@ use crate::{
 use bevy::{math::curve::easing::EaseFunction, prelude::*};
 use std::collections::HashMap;
 
-#[derive(Reflect, Clone, Debug, Default, PartialEq)]
+#[derive(Reflect, Clone, Debug, PartialEq)]
 pub struct FeedbackContext {
     pub listener: Option<Entity>,
     pub target: Option<Entity>,
@@ -20,6 +20,21 @@ pub struct FeedbackContext {
     pub origin: Option<Vec3>,
     pub direction: Vec3,
     pub channels: GameFeelChannels,
+    pub intensity_multiplier: f32,
+}
+
+impl Default for FeedbackContext {
+    fn default() -> Self {
+        Self {
+            listener: None,
+            target: None,
+            group: Vec::new(),
+            origin: None,
+            direction: Vec3::ZERO,
+            channels: GameFeelChannels::default(),
+            intensity_multiplier: 1.0,
+        }
+    }
 }
 
 #[derive(Reflect, Clone, Debug, PartialEq, Eq, Default)]
@@ -173,10 +188,22 @@ pub struct RecipeRumble {
 pub struct RecipeSquashStretch {
     pub target: EntitySelector,
     pub peak_scale: Vec3,
+    pub mode: crate::squash::ScaleEffectMode,
+    pub stacking: crate::squash::ScaleStacking,
     pub duration_secs: f32,
     pub easing: EaseFunction,
     pub clock: EffectTimeDomain,
     pub direction_from_context: bool,
+}
+
+#[derive(Reflect, Clone, Debug, PartialEq)]
+pub struct RecipeKnockback {
+    pub target: EntitySelector,
+    pub direction_from_context: bool,
+    pub force: f32,
+    pub duration_secs: f32,
+    pub easing: EaseFunction,
+    pub clock: EffectTimeDomain,
 }
 
 #[derive(Reflect, Clone, Debug, PartialEq)]
@@ -196,6 +223,7 @@ pub enum FeedbackAction {
     TimeScale(RecipeTimeScale),
     Rumble(RecipeRumble),
     SquashStretch(RecipeSquashStretch),
+    Knockback(RecipeKnockback),
     Hooks(RecipeHooks),
 }
 
@@ -247,7 +275,17 @@ impl FeedbackRecipeLibrary {
             .insert("heavy_impact".into(), heavy_impact());
         library.recipes.insert("explosion".into(), explosion());
         library.recipes.insert("reward_ping".into(), reward_ping());
+        library.recipes.insert("weapon_fire".into(), weapon_fire());
         library
+            .recipes
+            .insert("landing_impact".into(), landing_impact());
+        library.recipes.insert("dash_burst".into(), dash_burst());
+        library.recipes.insert("parry".into(), parry());
+        library
+    }
+
+    pub fn insert(&mut self, name: impl Into<String>, recipe: FeedbackRecipe) {
+        self.recipes.insert(name.into(), recipe);
     }
 }
 
@@ -350,6 +388,7 @@ pub(crate) fn advance_recipe_players(
     mut rumble_writer: MessageWriter<RequestRumble>,
     mut time_scale_writer: MessageWriter<RequestTimeScale>,
     mut squash_writer: MessageWriter<RequestSquashStretch>,
+    mut knockback_writer: MessageWriter<RequestKnockback>,
     mut step_writer: MessageWriter<FeedbackStepFired>,
     mut hook_writer: MessageWriter<FeedbackHookTriggered>,
 ) {
@@ -367,12 +406,14 @@ pub(crate) fn advance_recipe_players(
                     break;
                 }
 
+                let intensity = player.context.intensity_multiplier;
+
                 for action in &step.actions {
                     match action {
                         FeedbackAction::Trauma(action) => {
                             trauma_writer.write(AddTrauma {
                                 target: action.target.resolve(&player.context),
-                                trauma: action.trauma,
+                                trauma: action.trauma * intensity,
                                 origin: action
                                     .use_context_origin
                                     .then_some(player.context.origin)
@@ -384,8 +425,9 @@ pub(crate) fn advance_recipe_players(
                                 {
                                     player.context.direction.normalize_or_zero()
                                         * action.directional_bias.length()
+                                        * intensity
                                 } else {
-                                    action.directional_bias
+                                    action.directional_bias * intensity
                                 },
                                 profile_override: None,
                             });
@@ -393,9 +435,9 @@ pub(crate) fn advance_recipe_players(
                         FeedbackAction::CameraImpulse(action) => {
                             impulse_writer.write(RequestCameraImpulse {
                                 target: action.target.resolve(&player.context),
-                                translation: action.translation,
-                                rotation: action.rotation,
-                                fov: action.fov,
+                                translation: action.translation * intensity,
+                                rotation: action.rotation * intensity,
+                                fov: action.fov * intensity,
                                 origin: action
                                     .use_context_origin
                                     .then_some(player.context.origin)
@@ -425,9 +467,9 @@ pub(crate) fn advance_recipe_players(
                                 flash_writer.write(RequestFlash {
                                     target,
                                     color: action.color,
-                                    intensity: action.intensity,
-                                    chromatic_aberration: action.chromatic_aberration,
-                                    vignette: action.vignette,
+                                    intensity: action.intensity * intensity,
+                                    chromatic_aberration: action.chromatic_aberration * intensity,
+                                    vignette: action.vignette * intensity,
                                     origin: action
                                         .use_context_origin
                                         .then_some(player.context.origin)
@@ -445,8 +487,8 @@ pub(crate) fn advance_recipe_players(
                         FeedbackAction::Rumble(action) => {
                             rumble_writer.write(RequestRumble {
                                 target: action.target.resolve(&player.context),
-                                low_frequency: action.low_frequency,
-                                high_frequency: action.high_frequency,
+                                low_frequency: action.low_frequency * intensity,
+                                high_frequency: action.high_frequency * intensity,
                                 duration_secs: action.duration_secs,
                                 easing: action.easing,
                                 clock: action.clock,
@@ -457,22 +499,43 @@ pub(crate) fn advance_recipe_players(
                         }
                         FeedbackAction::SquashStretch(action) => {
                             if let Some(target) = action.target.resolve(&player.context) {
+                                let scaled_peak =
+                                    Vec3::ONE + (action.peak_scale - Vec3::ONE) * intensity;
                                 squash_writer.write(RequestSquashStretch {
                                     target,
-                                    peak_scale: action.peak_scale,
-                                    mode: crate::squash::ScaleEffectMode::Relative,
+                                    peak_scale: scaled_peak,
+                                    mode: action.mode,
                                     duration_secs: action.duration_secs,
                                     easing: action.easing,
                                     clock: action.clock,
-                                    stacking: crate::squash::ScaleStacking::Multiply,
+                                    stacking: action.stacking,
                                     direction: action
                                         .direction_from_context
                                         .then_some(player.context.direction),
                                     directional_magnitude: if action.direction_from_context {
-                                        (action.peak_scale - Vec3::ONE).length()
+                                        (scaled_peak - Vec3::ONE).length()
                                     } else {
                                         0.0
                                     },
+                                });
+                            }
+                        }
+                        FeedbackAction::Knockback(action) => {
+                            if let Some(target) = action.target.resolve(&player.context) {
+                                let direction = if action.direction_from_context
+                                    && player.context.direction.length_squared() > f32::EPSILON
+                                {
+                                    player.context.direction.normalize_or_zero()
+                                } else {
+                                    Vec3::ZERO
+                                };
+                                knockback_writer.write(RequestKnockback {
+                                    target,
+                                    direction,
+                                    force: action.force * intensity,
+                                    duration_secs: action.duration_secs,
+                                    easing: action.easing,
+                                    clock: action.clock,
                                 });
                             }
                         }
@@ -772,6 +835,8 @@ fn heavy_impact() -> FeedbackRecipe {
                     FeedbackAction::SquashStretch(RecipeSquashStretch {
                         target: EntitySelector::ContextTarget,
                         peak_scale: Vec3::new(1.18, 0.82, 1.0),
+                        mode: crate::squash::ScaleEffectMode::Relative,
+                        stacking: crate::squash::ScaleStacking::Multiply,
                         duration_secs: 0.18,
                         easing: EaseFunction::BackOut,
                         clock: EffectTimeDomain::Unscaled,
@@ -925,6 +990,221 @@ fn reward_ping() -> FeedbackRecipe {
                 }),
             ],
         }],
+    }
+}
+
+fn weapon_fire() -> FeedbackRecipe {
+    FeedbackRecipe {
+        cooldown_secs: 0.02,
+        condition: FeedbackCondition::RequiresListener,
+        repeat: FeedbackRecipeRepeat::Once,
+        steps: vec![FeedbackStep {
+            name: "fire".into(),
+            at_secs: 0.0,
+            actions: vec![
+                FeedbackAction::Trauma(RecipeTrauma {
+                    target: ListenerSelector::ContextListener,
+                    trauma: 0.10,
+                    directional_bias: Vec3::new(0.0, 0.04, -0.02),
+                    use_context_origin: false,
+                    attenuation: None,
+                    propagation_speed: None,
+                }),
+                FeedbackAction::CameraImpulse(RecipeImpulse {
+                    target: ListenerSelector::ContextListener,
+                    translation: Vec3::new(0.0, 0.02, -0.08),
+                    rotation: Vec3::new(-0.03, 0.0, 0.0),
+                    fov: -0.015,
+                    use_context_origin: false,
+                    attenuation: None,
+                    propagation_speed: None,
+                    space: ImpulseSpace::Local,
+                }),
+                FeedbackAction::Flash(RecipeFlash {
+                    target: RecipeFlashTarget::Screen(ListenerSelector::ContextListener),
+                    color: Color::srgb(1.0, 0.85, 0.5),
+                    intensity: 0.15,
+                    chromatic_aberration: 0.02,
+                    vignette: 0.04,
+                    use_context_origin: false,
+                    attenuation: None,
+                    duration_secs: 0.06,
+                    easing: EaseFunction::SineOut,
+                    clock: EffectTimeDomain::Unscaled,
+                }),
+                FeedbackAction::Rumble(RecipeRumble {
+                    target: ListenerSelector::ContextListener,
+                    low_frequency: 0.40,
+                    high_frequency: 0.60,
+                    duration_secs: 0.08,
+                    easing: EaseFunction::SineOut,
+                    clock: EffectTimeDomain::Unscaled,
+                }),
+                FeedbackAction::Hooks(RecipeHooks {
+                    audio_cue: Some("weapon_fire".into()),
+                    particle_cue: Some("muzzle_flash".into()),
+                    target: None,
+                    use_context_origin: true,
+                }),
+            ],
+        }],
+    }
+}
+
+fn landing_impact() -> FeedbackRecipe {
+    FeedbackRecipe {
+        cooldown_secs: 0.05,
+        condition: FeedbackCondition::RequiresTarget,
+        repeat: FeedbackRecipeRepeat::Once,
+        steps: vec![FeedbackStep {
+            name: "land".into(),
+            at_secs: 0.0,
+            actions: vec![
+                FeedbackAction::Trauma(RecipeTrauma {
+                    target: ListenerSelector::ContextListener,
+                    trauma: 0.12,
+                    directional_bias: Vec3::new(0.0, -0.06, 0.0),
+                    use_context_origin: true,
+                    attenuation: None,
+                    propagation_speed: None,
+                }),
+                FeedbackAction::SquashStretch(RecipeSquashStretch {
+                    target: EntitySelector::ContextTarget,
+                    peak_scale: Vec3::new(1.25, 0.75, 1.0),
+                    mode: crate::squash::ScaleEffectMode::Relative,
+                    stacking: crate::squash::ScaleStacking::Multiply,
+                    duration_secs: 0.22,
+                    easing: EaseFunction::BackOut,
+                    clock: EffectTimeDomain::Unscaled,
+                    direction_from_context: false,
+                }),
+                FeedbackAction::Hooks(RecipeHooks {
+                    audio_cue: Some("landing_thud".into()),
+                    particle_cue: Some("dust_puff".into()),
+                    target: Some(EntitySelector::ContextTarget),
+                    use_context_origin: true,
+                }),
+            ],
+        }],
+    }
+}
+
+fn dash_burst() -> FeedbackRecipe {
+    FeedbackRecipe {
+        cooldown_secs: 0.08,
+        condition: FeedbackCondition::RequiresTarget,
+        repeat: FeedbackRecipeRepeat::Once,
+        steps: vec![FeedbackStep {
+            name: "dash".into(),
+            at_secs: 0.0,
+            actions: vec![
+                FeedbackAction::Trauma(RecipeTrauma {
+                    target: ListenerSelector::ContextListener,
+                    trauma: 0.08,
+                    directional_bias: Vec3::ZERO,
+                    use_context_origin: false,
+                    attenuation: None,
+                    propagation_speed: None,
+                }),
+                FeedbackAction::SquashStretch(RecipeSquashStretch {
+                    target: EntitySelector::ContextTarget,
+                    peak_scale: Vec3::new(0.80, 1.30, 1.0),
+                    mode: crate::squash::ScaleEffectMode::Relative,
+                    stacking: crate::squash::ScaleStacking::Multiply,
+                    duration_secs: 0.16,
+                    easing: EaseFunction::BackOut,
+                    clock: EffectTimeDomain::Unscaled,
+                    direction_from_context: true,
+                }),
+                FeedbackAction::TimeScale(RecipeTimeScale {
+                    target: TimeScaleSelector::World,
+                    scale: 0.85,
+                    ramp_in_secs: 0.0,
+                    hold_secs: 0.03,
+                    ramp_out_secs: 0.10,
+                    easing: EaseFunction::SineInOut,
+                    priority: 0,
+                }),
+                FeedbackAction::Hooks(RecipeHooks {
+                    audio_cue: Some("dash_whoosh".into()),
+                    particle_cue: Some("speed_lines".into()),
+                    target: Some(EntitySelector::ContextTarget),
+                    use_context_origin: true,
+                }),
+            ],
+        }],
+    }
+}
+
+fn parry() -> FeedbackRecipe {
+    FeedbackRecipe {
+        cooldown_secs: 0.10,
+        condition: FeedbackCondition::RequiresListener,
+        repeat: FeedbackRecipeRepeat::Once,
+        steps: vec![
+            FeedbackStep {
+                name: "deflect".into(),
+                at_secs: 0.0,
+                actions: vec![
+                    FeedbackAction::Hitstop(RecipeHitstop {
+                        target: TimeScaleSelector::World,
+                        hold_frames: 6,
+                        recovery_frames: 3,
+                        stacking: HitstopStacking::Refresh,
+                    }),
+                    FeedbackAction::Trauma(RecipeTrauma {
+                        target: ListenerSelector::ContextListener,
+                        trauma: 0.28,
+                        directional_bias: Vec3::new(0.15, 0.0, 0.0),
+                        use_context_origin: false,
+                        attenuation: None,
+                        propagation_speed: None,
+                    }),
+                    FeedbackAction::Flash(RecipeFlash {
+                        target: RecipeFlashTarget::EntityAndScreen {
+                            entity: EntitySelector::ContextTarget,
+                            screen: ListenerSelector::ContextListener,
+                        },
+                        color: Color::srgb(0.8, 0.9, 1.0),
+                        intensity: 0.70,
+                        chromatic_aberration: 0.12,
+                        vignette: 0.15,
+                        use_context_origin: false,
+                        attenuation: None,
+                        duration_secs: 0.14,
+                        easing: EaseFunction::SineOut,
+                        clock: EffectTimeDomain::Unscaled,
+                    }),
+                    FeedbackAction::Rumble(RecipeRumble {
+                        target: ListenerSelector::ContextListener,
+                        low_frequency: 0.90,
+                        high_frequency: 0.70,
+                        duration_secs: 0.14,
+                        easing: EaseFunction::SineOut,
+                        clock: EffectTimeDomain::Unscaled,
+                    }),
+                    FeedbackAction::Hooks(RecipeHooks {
+                        audio_cue: Some("parry_clang".into()),
+                        particle_cue: Some("spark_burst".into()),
+                        target: Some(EntitySelector::ContextTarget),
+                        use_context_origin: true,
+                    }),
+                ],
+            },
+            FeedbackStep {
+                name: "slow_mo".into(),
+                at_secs: 0.02,
+                actions: vec![FeedbackAction::TimeScale(RecipeTimeScale {
+                    target: TimeScaleSelector::World,
+                    scale: 0.20,
+                    ramp_in_secs: 0.0,
+                    hold_secs: 0.12,
+                    ramp_out_secs: 0.20,
+                    easing: EaseFunction::SineInOut,
+                    priority: 2,
+                })],
+            },
+        ],
     }
 }
 

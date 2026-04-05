@@ -1,11 +1,11 @@
 use bevy::{post_process::effect_stack::ChromaticAberration, prelude::*};
 use bevy_flair::prelude::InlineStyle;
-use saddle_systems_game_feel::{
-    EntityTimeScale, GameFeelConfig, GameFeelDiagnostics, GlobalTimeScale,
-    IgnoreGlobalTimeScale, IgnoreHitstop, PunchListener, RumbleListener, ScreenPulseListener,
-    ScreenPulsePresentation, ShakeListener, resolve_effective_time_scale,
-};
 use saddle_pane::prelude::*;
+use saddle_systems_game_feel::{
+    EntityTimeScale, GameFeelConfig, GameFeelDiagnostics, GlobalTimeScale, IgnoreGlobalTimeScale,
+    IgnoreHitstop, PunchListener, RumbleListener, ScreenPulseListener, ScreenPulsePresentation,
+    ShakeListener, resolve_effective_time_scale,
+};
 
 const PANE_DARK_THEME_VARS: &[(&str, &str)] = &[
     ("--pane-elevation-1", "#28292e"),
@@ -159,7 +159,12 @@ pub fn install_pane(app: &mut App) {
     app.register_pane::<ExampleFeelPane>()
         .add_systems(
             PreUpdate,
-            (prime_pane_theme_vars, apply_bootstrapped_pane, sync_game_feel_config).chain(),
+            (
+                prime_pane_theme_vars,
+                apply_bootstrapped_pane,
+                sync_game_feel_config,
+            )
+                .chain(),
         )
         .add_systems(PostUpdate, reflect_game_feel_monitors);
 }

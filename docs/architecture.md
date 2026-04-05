@@ -9,7 +9,7 @@ Pure or mostly-pure modules:
 1. `tween.rs`
 2. `config.rs`
 3. `channels.rs`
-4. the math-heavy helpers inside `shake.rs`, `punch.rs`, `squash.rs`, and `time_scale.rs`
+4. the math-heavy helpers inside `shake.rs`, `punch.rs`, `squash.rs`, `knockback.rs`, and `time_scale.rs`
 
 Bevy-facing runtime modules:
 
@@ -34,7 +34,7 @@ Gameplay messages
 
 More concretely:
 
-1. `AddTrauma`, `RequestCameraImpulse`, `RequestHitstop`, `RequestTimeScale`, `RequestFlash`, `RequestRumble`, `RequestSquashStretch`, and `PlayFeedbackRecipe` enter through the message layer.
+1. `AddTrauma`, `RequestCameraImpulse`, `RequestHitstop`, `RequestTimeScale`, `RequestFlash`, `RequestRumble`, `RequestSquashStretch`, `RequestKnockback`, and `PlayFeedbackRecipe` enter through the message layer.
 2. Recipes expand into concrete request messages.
 3. Request processors resolve channels, attenuation, and per-target runtime state.
 4. Simulation systems advance effect queues and sampled outputs.
@@ -73,6 +73,7 @@ Generic output surfaces:
 - `ScreenPulseOutput`
 - `RumbleOutput`
 - `SquashStretchState`
+- `KnockbackState`
 
 Built-in adapters:
 
@@ -81,6 +82,7 @@ Built-in adapters:
 - `Sprite` flash writeback for `FlashOutput`
 - optional UI-overlay and `ChromaticAberration` writeback for `ScreenPulseOutput`
 - no built-in platform haptics backend; `RumbleOutput` intentionally stays as a portable output surface for downstream gamepad or platform adapters
+- no built-in transform application for knockback; `KnockbackState` provides displacement as an output surface that consumer systems apply to their own movement logic
 
 This means downstream projects can:
 
@@ -122,6 +124,13 @@ This means downstream projects can:
 - `Multiply` composes all active scale multipliers.
 - `Strongest` picks the effect furthest from `Vec3::ONE`.
 - `Replace` uses the most recently added effect only.
+
+### Knockback
+
+- All active knockback effects sum their displacements into `KnockbackState`.
+- `KnockbackReceiver.max_displacement` clamps the total magnitude.
+- Displacement decays via an eased envelope (default `QuadraticOut`).
+- The crate computes displacement only; consumer systems decide how to apply it (add to transform, feed into physics, etc.).
 
 ## Time Domains
 

@@ -48,9 +48,9 @@ fn play_recipe_cycle(
     target: Query<(Entity, &Transform), With<support::DemoTarget>>,
     mut recipes: MessageWriter<PlayFeedbackRecipe>,
 ) {
-    timer
-        .0
-        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.2)));
+    timer.0.set_duration(std::time::Duration::from_secs_f32(
+        pane.interval_secs.max(0.2),
+    ));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }
@@ -78,6 +78,7 @@ fn play_recipe_cycle(
             origin: Some(transform.translation),
             direction: Vec3::new(1.0, -0.2, 0.0),
             channels: GameFeelChannels::WEAPON,
+            ..default()
         },
     });
 }

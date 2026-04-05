@@ -47,9 +47,9 @@ fn trigger_impact(
     mut flash: MessageWriter<RequestFlash>,
     mut squash: MessageWriter<RequestSquashStretch>,
 ) {
-    timer
-        .0
-        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.2)));
+    timer.0.set_duration(std::time::Duration::from_secs_f32(
+        pane.interval_secs.max(0.2),
+    ));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }
@@ -89,6 +89,9 @@ fn trigger_impact(
     });
     squash.write(RequestSquashStretch::new(
         target,
-        Vec3::splat(1.0).lerp(Vec3::new(1.18, 0.82, 1.0), pane.impulse_scale.clamp(0.0, 2.0)),
+        Vec3::splat(1.0).lerp(
+            Vec3::new(1.18, 0.82, 1.0),
+            pane.impulse_scale.clamp(0.0, 2.0),
+        ),
     ));
 }

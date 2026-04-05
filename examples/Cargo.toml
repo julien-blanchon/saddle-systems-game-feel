@@ -8,6 +8,10 @@ members = [
     "time_scale",
     "debug_showcase",
     "recoil_3d",
+    "punching",
+    "comparison",
+    "platformer",
+    "shooter",
     "lab",
 ]
 resolver = "3"

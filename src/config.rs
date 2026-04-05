@@ -69,6 +69,58 @@ impl Default for GameFeelConfig {
     }
 }
 
+#[derive(Resource, Reflect, Clone, Debug)]
+#[reflect(Resource, Default)]
+pub struct GameFeelToggles {
+    pub shake_enabled: bool,
+    pub punch_enabled: bool,
+    pub flash_enabled: bool,
+    pub hitstop_enabled: bool,
+    pub time_scale_enabled: bool,
+    pub rumble_enabled: bool,
+    pub squash_stretch_enabled: bool,
+    pub knockback_enabled: bool,
+    pub screen_pulse_enabled: bool,
+}
+
+impl Default for GameFeelToggles {
+    fn default() -> Self {
+        Self {
+            shake_enabled: true,
+            punch_enabled: true,
+            flash_enabled: true,
+            hitstop_enabled: true,
+            time_scale_enabled: true,
+            rumble_enabled: true,
+            squash_stretch_enabled: true,
+            knockback_enabled: true,
+            screen_pulse_enabled: true,
+        }
+    }
+}
+
+impl GameFeelToggles {
+    #[must_use]
+    pub fn all_enabled() -> Self {
+        Self::default()
+    }
+
+    #[must_use]
+    pub fn all_disabled() -> Self {
+        Self {
+            shake_enabled: false,
+            punch_enabled: false,
+            flash_enabled: false,
+            hitstop_enabled: false,
+            time_scale_enabled: false,
+            rumble_enabled: false,
+            squash_stretch_enabled: false,
+            knockback_enabled: false,
+            screen_pulse_enabled: false,
+        }
+    }
+}
+
 #[derive(Resource, Reflect, Clone, Debug, Default)]
 #[reflect(Resource, Default)]
 pub struct GameFeelDiagnostics {
@@ -79,6 +131,7 @@ pub struct GameFeelDiagnostics {
     pub active_rumble_listeners: usize,
     pub active_entity_flashes: usize,
     pub active_scale_effects: usize,
+    pub active_knockback_effects: usize,
     pub active_recipe_players: usize,
     pub active_local_time_targets: usize,
     pub global_base_scale: f32,

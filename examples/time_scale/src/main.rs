@@ -47,9 +47,9 @@ fn pulse_time_scale(
     target: Query<Entity, With<support::DemoTarget>>,
     mut requests: MessageWriter<RequestTimeScale>,
 ) {
-    timer
-        .0
-        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.2)));
+    timer.0.set_duration(std::time::Duration::from_secs_f32(
+        pane.interval_secs.max(0.2),
+    ));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }

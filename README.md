@@ -1,6 +1,6 @@
 # Saddle Systems Game Feel
 
-Reusable Bevy feedback runtime for impactful moment-to-moment response: trauma shake, hitstop, camera punch, time scaling, flash pulses, rumble outputs, squash and stretch, and data-driven recipes.
+Reusable Bevy feedback runtime for impactful moment-to-moment response: trauma shake, hitstop, camera punch, time scaling, flash pulses, rumble outputs, squash and stretch, knockback, and data-driven recipes.
 
 The crate stays project-agnostic. It does not depend on `game_core`, `Screen`, `GameSet`, asset paths, or any gameplay vocabulary. Consumer crates emit generic feedback messages, and `saddle-systems-game-feel` handles stacking, timing, cleanup, and the built-in transform/sprite/screen adapters.
 
@@ -93,36 +93,26 @@ fn trigger_hit(
     let Ok(target) = target.single() else {
         return;
     };
-    trauma.write(AddTrauma {
-        target: ListenerTarget::Entity(camera),
-        trauma: 0.28,
-        origin: None,
-        attenuation: None,
-        propagation_speed: None,
-        directional_bias: Vec3::new(0.08, -0.02, 0.0),
-        profile_override: None,
-    });
-    hitstop.write(RequestHitstop {
-        target: TimeScaleTarget::World,
-        hold_frames: 3,
-        recovery_frames: 4,
-        ..RequestHitstop::new(TimeScaleTarget::World, 3)
-    });
-    flash.write(RequestFlash {
-        target: FlashTarget::EntityAndScreen {
-            entity: target,
-            screen: ListenerTarget::Entity(camera),
-        },
-        color: Color::WHITE,
-        intensity: 0.45,
-        chromatic_aberration: 0.05,
-        vignette: 0.12,
-        duration_secs: 0.16,
-        easing: bevy::math::curve::easing::EaseFunction::SineOut,
-        clock: EffectTimeDomain::Unscaled,
-        origin: None,
-        attenuation: None,
-    });
+    trauma.write(
+        AddTrauma::new(ListenerTarget::Entity(camera), 0.28)
+            .with_directional_bias(Vec3::new(0.08, -0.02, 0.0)),
+    );
+    hitstop.write(
+        RequestHitstop::new(TimeScaleTarget::World, 3)
+            .with_recovery(4),
+    );
+    flash.write(
+        RequestFlash::new(
+            FlashTarget::EntityAndScreen {
+                entity: target,
+                screen: ListenerTarget::Entity(camera),
+            },
+            Color::WHITE,
+            0.45,
+        )
+        .with_chromatic_aberration(0.05)
+        .with_vignette(0.12),
+    );
 }
 ```
 
@@ -140,12 +130,15 @@ fn trigger_hit(
 | `RequestFlash` | Entity flash plus screen pulse request with optional distance attenuation |
 | `RequestRumble` | Output-only haptics / rumble request for one listener, a channel group, or all listeners |
 | `RequestSquashStretch` | Message-driven scale feedback on a target entity |
+| `RequestKnockback` | Displacement-based knockback on a target entity with eased decay |
 | `PlayFeedbackRecipe` | Single trigger message for named feedback recipes |
+| `GameFeelToggles` | Resource to enable/disable individual effect categories at runtime |
 | `ShakeListener`, `PunchListener`, `ScreenPulseListener`, `RumbleListener` | Opt-in listeners for shake, punch, screen effects, and haptics |
+| `KnockbackReceiver` | Opt-in component for entities that can receive knockback displacement |
 | `GlobalTimeScale`, `EntityTimeScale` | Public timing surfaces for consumer gameplay systems |
-| `ShakeState`, `PunchState`, `FlashOutput`, `ScreenPulseOutput`, `RumbleOutput`, `SquashStretchState` | Inspectable output surfaces and adapter bridge points |
+| `ShakeState`, `PunchState`, `FlashOutput`, `ScreenPulseOutput`, `RumbleOutput`, `SquashStretchState`, `KnockbackState` | Inspectable output surfaces and adapter bridge points |
 | `FeedbackRecipeLibrary`, `FeedbackRecipe`, `FeedbackAction`, `FeedbackCondition`, `FeedbackRecipeRepeat` | Data-driven recipe authoring surface, conditional playback, and loop control |
-| `RecipeRumble` | Recipe-authored haptics output |
+| `RecipeRumble`, `RecipeKnockback` | Recipe-authored haptics and knockback output |
 | `RecipeHooks`, `FeedbackHookTriggered` | Bridge recipe steps into audio, particles, or custom renderer integrations |
 | `Tween`, `TweenRepeat`, `AttackSustainDecay` | Lightweight easing and envelope helpers reused internally and available to consumers |
 
@@ -160,6 +153,7 @@ fn trigger_hit(
 | Entity flash | Strongest weighted intensity wins |
 | Screen pulse | Flash color uses the strongest pulse; chromatic and vignette use max composition |
 | Squash/stretch | Configurable `Multiply`, `Strongest`, or `Replace` stacking |
+| Knockback | All active displacements sum; `KnockbackReceiver` clamps the total magnitude |
 
 ## Time Semantics
 
@@ -194,6 +188,10 @@ Built-in recipes also emit `FeedbackHookTriggered` cue messages so audio, partic
 | `time_scale` | World slow-mo with an entity that ignores global scaling | `cargo run -p saddle-systems-game-feel-example-time_scale` |
 | `recoil_3d` | Perspective-camera recoil example proving 3D transform and FOV punch support | `cargo run -p saddle-systems-game-feel-example-recoil_3d` |
 | `debug_showcase` | Rich self-running showcase of recoil, impact, explosion, and reward pulses | `cargo run -p saddle-systems-game-feel-example-debug_showcase` |
+| `punching` | Interactive punch bag with full effect stack: shake, hitstop, flash, squash, knockback, and recipe | `cargo run -p saddle-systems-game-feel-example-punching` |
+| `comparison` | Side-by-side with/without game feel; press T to toggle all effects | `cargo run -p saddle-systems-game-feel-example-comparison` |
+| `platformer` | Platformer feel: landing squash, jump stretch, wall shake, and recipe-driven impacts | `cargo run -p saddle-systems-game-feel-example-platformer` |
+| `shooter` | Weapon fire, light/heavy hits, and parry via the recipe system | `cargo run -p saddle-systems-game-feel-example-shooter` |
 
 Every shipped example now includes a `saddle-pane` panel for live timing and intensity tuning.
 

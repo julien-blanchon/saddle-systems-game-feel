@@ -57,9 +57,9 @@ fn drive_showcase(
     mut recoil: MessageWriter<RequestCameraImpulse>,
     mut recipes: MessageWriter<PlayFeedbackRecipe>,
 ) {
-    timer
-        .0
-        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.2)));
+    timer.0.set_duration(std::time::Duration::from_secs_f32(
+        pane.interval_secs.max(0.2),
+    ));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }
@@ -95,6 +95,7 @@ fn drive_showcase(
                     origin: Some(transform.translation),
                     direction: Vec3::new(1.0, -0.2, 0.0),
                     channels: GameFeelChannels::WEAPON,
+                    ..default()
                 },
             });
         }
@@ -108,6 +109,7 @@ fn drive_showcase(
                     origin: Some(transform.translation + Vec3::new(120.0, 0.0, 0.0)),
                     direction: Vec3::new(-1.0, 0.1, 0.0),
                     channels: GameFeelChannels::GAMEPLAY,
+                    ..default()
                 },
             });
         }
@@ -121,6 +123,7 @@ fn drive_showcase(
                     origin: Some(transform.translation),
                     direction: Vec3::Y,
                     channels: GameFeelChannels::UI,
+                    ..default()
                 },
             });
         }

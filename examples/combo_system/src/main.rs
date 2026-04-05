@@ -22,7 +22,11 @@ struct ComboHudState {
 
 fn main() {
     let mut app = App::new();
-    support::add_example_plugins(&mut app, "Game Feel Combo System", Color::srgb(0.04, 0.05, 0.08));
+    support::add_example_plugins(
+        &mut app,
+        "Game Feel Combo System",
+        Color::srgb(0.04, 0.05, 0.08),
+    );
     support::seed_example_pane(
         &mut app,
         support::ExampleFeelPane {
@@ -51,7 +55,11 @@ fn main() {
     );
     app.add_systems(
         Update,
-        (capture_combo_feedback, update_combo_label, support::update_hud)
+        (
+            capture_combo_feedback,
+            update_combo_label,
+            support::update_hud,
+        )
             .chain()
             .after(GameFeelSystems::ProcessRequests),
     );
@@ -218,9 +226,9 @@ fn play_combo_cycle(
     target: Query<(Entity, &Transform), With<support::DemoTarget>>,
     mut recipes: MessageWriter<PlayFeedbackRecipe>,
 ) {
-    timer
-        .0
-        .set_duration(std::time::Duration::from_secs_f32(pane.interval_secs.max(0.4)));
+    timer.0.set_duration(std::time::Duration::from_secs_f32(
+        pane.interval_secs.max(0.4),
+    ));
     if !timer.0.tick(time.delta()).just_finished() {
         return;
     }
@@ -242,6 +250,7 @@ fn play_combo_cycle(
             origin: Some(transform.translation),
             direction: Vec3::new(1.0, -0.15, 0.0),
             channels: GameFeelChannels::WEAPON,
+            ..default()
         },
     });
 }
@@ -256,7 +265,12 @@ fn capture_combo_feedback(
             continue;
         }
 
-        state.last_step = format!("{} (step {} / loop {})", step.step_name, step.step_index + 1, step.loop_index + 1);
+        state.last_step = format!(
+            "{} (step {} / loop {})",
+            step.step_name,
+            step.step_index + 1,
+            step.loop_index + 1
+        );
         state.last_loop = step.loop_index + 1;
     }
 

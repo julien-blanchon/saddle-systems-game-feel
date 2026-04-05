@@ -1,8 +1,8 @@
 use super::*;
 use crate::{
     AddTrauma, FeedbackHookTriggered, FeedbackStepFired, GameFeelDiagnostics, GlobalTimeScale,
-    PlayFeedbackRecipe, RequestCameraImpulse, RequestFlash, RequestHitstop, RequestRumble,
-    RequestSquashStretch, RequestTimeScale,
+    PlayFeedbackRecipe, RequestCameraImpulse, RequestFlash, RequestHitstop, RequestKnockback,
+    RequestRumble, RequestSquashStretch, RequestTimeScale,
 };
 use bevy::math::curve::easing::EaseFunction;
 
@@ -13,6 +13,10 @@ fn default_library_contains_builtin_presets() {
     assert!(library.recipes.contains_key("heavy_impact"));
     assert!(library.recipes.contains_key("explosion"));
     assert!(library.recipes.contains_key("reward_ping"));
+    assert!(library.recipes.contains_key("weapon_fire"));
+    assert!(library.recipes.contains_key("landing_impact"));
+    assert!(library.recipes.contains_key("dash_burst"));
+    assert!(library.recipes.contains_key("parry"));
 }
 
 #[test]
@@ -29,6 +33,7 @@ fn recipe_step_emits_requests_on_first_frame() {
     app.add_message::<RequestRumble>();
     app.add_message::<RequestTimeScale>();
     app.add_message::<RequestSquashStretch>();
+    app.add_message::<RequestKnockback>();
     app.add_message::<PlayFeedbackRecipe>();
     app.add_message::<FeedbackStepFired>();
     app.add_message::<FeedbackHookTriggered>();
@@ -193,6 +198,7 @@ fn delayed_steps_wait_until_their_scheduled_time() {
     app.add_message::<RequestRumble>();
     app.add_message::<RequestTimeScale>();
     app.add_message::<RequestSquashStretch>();
+    app.add_message::<RequestKnockback>();
     app.add_message::<PlayFeedbackRecipe>();
     app.add_message::<FeedbackStepFired>();
     app.add_message::<FeedbackHookTriggered>();
@@ -291,6 +297,7 @@ fn hook_actions_emit_audio_and_particle_cues() {
     app.add_message::<RequestRumble>();
     app.add_message::<RequestTimeScale>();
     app.add_message::<RequestSquashStretch>();
+    app.add_message::<RequestKnockback>();
     app.add_message::<PlayFeedbackRecipe>();
     app.add_message::<FeedbackStepFired>();
     app.add_message::<FeedbackHookTriggered>();
@@ -415,6 +422,7 @@ fn repeating_recipe_replays_steps_after_the_gap() {
     app.add_message::<RequestRumble>();
     app.add_message::<RequestTimeScale>();
     app.add_message::<RequestSquashStretch>();
+    app.add_message::<RequestKnockback>();
     app.add_message::<PlayFeedbackRecipe>();
     app.add_message::<FeedbackStepFired>();
     app.add_message::<FeedbackHookTriggered>();
