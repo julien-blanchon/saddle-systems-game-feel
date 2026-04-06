@@ -20,6 +20,8 @@ Bevy-facing runtime modules:
 
 The pure layer owns stacking, attenuation, spring behavior, tween sampling, and time-scale resolution. The Bevy layer only reads messages, advances runtime state, applies outputs, and cleans up adapters.
 
+Optional authored sample content now lives separately in `presets.rs`. That module contains example-facing channel aliases and named recipe packs, but the core runtime initializes no gameplay vocabulary by default.
+
 ## Runtime Flow
 
 ```text
@@ -35,7 +37,7 @@ Gameplay messages
 More concretely:
 
 1. `AddTrauma`, `RequestCameraImpulse`, `RequestHitstop`, `RequestTimeScale`, `RequestFlash`, `RequestRumble`, `RequestSquashStretch`, `RequestKnockback`, and `PlayFeedbackRecipe` enter through the message layer.
-2. Recipes expand into concrete request messages.
+2. Recipes expand into concrete request messages. The runtime only knows about whatever recipes a game inserts into `FeedbackRecipeLibrary`; optional sample recipes come from `presets::recipes`.
 3. Request processors resolve channels, attenuation, and per-target runtime state.
 4. Simulation systems advance effect queues and sampled outputs.
 5. Built-in adapters apply those outputs additively and reversibly.

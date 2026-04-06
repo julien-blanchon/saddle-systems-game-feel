@@ -10,6 +10,9 @@ use saddle_systems_game_feel::{
     PunchListener, RequestCameraImpulse, RequestHitstop, ShakeListener, ShakeState,
 };
 
+const GAMEPLAY_CHANNEL: GameFeelChannels = GameFeelChannels::new(1 << 0);
+const WEAPON_CHANNEL: GameFeelChannels = GameFeelChannels::new(1 << 2);
+
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash)]
 struct ActivateSchedule;
 
@@ -97,7 +100,7 @@ fn trauma_requests_only_affect_matching_channels() {
         .world_mut()
         .spawn((
             ShakeListener {
-                channels: GameFeelChannels::WEAPON,
+                channels: WEAPON_CHANNEL,
                 ..default()
             },
             Transform::default(),
@@ -107,7 +110,7 @@ fn trauma_requests_only_affect_matching_channels() {
         .world_mut()
         .spawn((
             ShakeListener {
-                channels: GameFeelChannels::GAMEPLAY,
+                channels: GAMEPLAY_CHANNEL,
                 ..default()
             },
             Transform::default(),
@@ -122,7 +125,7 @@ fn trauma_requests_only_affect_matching_channels() {
     app.world_mut()
         .resource_mut::<Messages<AddTrauma>>()
         .write(AddTrauma {
-            target: ListenerTarget::Channels(GameFeelChannels::WEAPON),
+            target: ListenerTarget::Channels(WEAPON_CHANNEL),
             trauma: 0.35,
             origin: None,
             attenuation: None,

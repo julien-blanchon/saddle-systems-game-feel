@@ -159,7 +159,7 @@ fn hitstop_flash() -> Scenario {
 
 fn recipe_showcase() -> Scenario {
     Scenario::builder("recipe_showcase")
-        .description("Cycle built-in and repeating showcase recipes, assert step firing, hook cues, and rumble output, then capture the result.")
+        .description("Cycle optional preset and repeating showcase recipes, assert step firing, hook cues, and rumble output, then capture the result.")
         .then(Action::Custom(Box::new(|world| reset_lab(world, LabMode::RecipeShowcase))))
         .then(Action::WaitUntil {
             label: "recipes fired".into(),

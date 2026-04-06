@@ -2,8 +2,8 @@ use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
 use saddle_systems_game_feel::{
-    FeedbackContext, GameFeelChannels, GameFeelPlugin, ListenerTarget, PlayFeedbackRecipe,
-    RequestCameraImpulse,
+    FeedbackContext, GameFeelPlugin, ListenerTarget, PlayFeedbackRecipe, RequestCameraImpulse,
+    presets,
 };
 
 #[derive(Resource)]
@@ -27,13 +27,15 @@ fn main() {
         },
     );
     app.add_plugins(GameFeelPlugin::default());
+    app.insert_resource(presets::recipes::library());
     app.insert_resource(ShowcaseTimer(Timer::from_seconds(
         1.0,
         TimerMode::Repeating,
     )));
     app.insert_resource(ShowcaseCycle::default());
     app.insert_resource(support::HudLabel(
-        "Debug Showcase\nAuto-cycles recoil, heavy impact, explosion, and reward pulses.".into(),
+        "Debug Showcase\nAuto-cycles recoil plus optional heavy impact, explosion, and reward presets."
+            .into(),
     ));
     app.add_systems(Startup, support::setup_2d_scene);
     app.add_systems(
@@ -87,42 +89,42 @@ fn drive_showcase(
         }
         1 => {
             recipes.write(PlayFeedbackRecipe {
-                name: "heavy_impact".into(),
+                name: presets::recipes::HEAVY_IMPACT.into(),
                 context: FeedbackContext {
                     listener: Some(camera),
                     target: Some(target),
                     group: vec![target],
                     origin: Some(transform.translation),
                     direction: Vec3::new(1.0, -0.2, 0.0),
-                    channels: GameFeelChannels::WEAPON,
+                    channels: presets::channels::WEAPON,
                     ..default()
                 },
             });
         }
         2 => {
             recipes.write(PlayFeedbackRecipe {
-                name: "explosion".into(),
+                name: presets::recipes::EXPLOSION.into(),
                 context: FeedbackContext {
                     listener: Some(camera),
                     target: Some(target),
                     group: vec![target],
                     origin: Some(transform.translation + Vec3::new(120.0, 0.0, 0.0)),
                     direction: Vec3::new(-1.0, 0.1, 0.0),
-                    channels: GameFeelChannels::GAMEPLAY,
+                    channels: presets::channels::GAMEPLAY,
                     ..default()
                 },
             });
         }
         _ => {
             recipes.write(PlayFeedbackRecipe {
-                name: "reward_ping".into(),
+                name: presets::recipes::REWARD_PING.into(),
                 context: FeedbackContext {
                     listener: Some(camera),
                     target: Some(target),
                     group: vec![target],
                     origin: Some(transform.translation),
                     direction: Vec3::Y,
-                    channels: GameFeelChannels::UI,
+                    channels: presets::channels::UI,
                     ..default()
                 },
             });

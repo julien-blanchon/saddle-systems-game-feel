@@ -2,8 +2,8 @@ use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
 use saddle_systems_game_feel::{
-    AddTrauma, GameFeelChannels, GameFeelPlugin, ListenerTarget, PlayFeedbackRecipe,
-    RequestCameraImpulse, RequestSquashStretch,
+    AddTrauma, GameFeelPlugin, ListenerTarget, PlayFeedbackRecipe, RequestCameraImpulse,
+    RequestSquashStretch, presets,
 };
 
 const GRAVITY: f32 = -1200.0;
@@ -35,6 +35,7 @@ fn main() {
         },
     );
     app.add_plugins(GameFeelPlugin::default());
+    app.insert_resource(presets::recipes::library());
     app.insert_resource(support::HudLabel(
         "Platformer Feel\n[A/D] Move  [SPACE] Jump\nLanding squash, jump stretch, wall shake"
             .into(),
@@ -162,10 +163,10 @@ fn player_input(
         ));
 
         recipe.write(
-            PlayFeedbackRecipe::new("dash_burst")
+            PlayFeedbackRecipe::new(presets::recipes::DASH_BURST)
                 .with_listener(camera)
                 .with_target(entity)
-                .with_channels(GameFeelChannels::GAMEPLAY)
+                .with_channels(presets::channels::GAMEPLAY)
                 .with_intensity(0.3),
         );
     }
@@ -233,11 +234,11 @@ fn player_physics(
 
         if impact_intensity > 0.3 {
             recipe.write(
-                PlayFeedbackRecipe::new("landing_impact")
+                PlayFeedbackRecipe::new(presets::recipes::LANDING_IMPACT)
                     .with_listener(camera)
                     .with_target(entity)
                     .with_origin(transform.translation)
-                    .with_channels(GameFeelChannels::GAMEPLAY)
+                    .with_channels(presets::channels::GAMEPLAY)
                     .with_intensity(impact_intensity),
             );
 

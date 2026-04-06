@@ -6,6 +6,12 @@ The crate stays project-agnostic. It does not depend on `game_core`, `Screen`, `
 
 For always-on examples, tools, or sandboxes, `GameFeelPlugin::always_on(Update)` is the simplest entrypoint. For real games, prefer `GameFeelPlugin::new(...)` so activation and teardown stay aligned with your own schedules.
 
+Core defaults stay blank on purpose:
+
+- `FeedbackRecipeLibrary::default()` starts empty
+- `GameFeelChannels` only exposes raw bit data plus `NONE` / `ALL`
+- optional example-friendly recipe packs and channel aliases live under `saddle_systems_game_feel::presets`
+
 ## Quick Start
 
 ```toml
@@ -131,13 +137,14 @@ fn trigger_hit(
 | `RequestRumble` | Output-only haptics / rumble request for one listener, a channel group, or all listeners |
 | `RequestSquashStretch` | Message-driven scale feedback on a target entity |
 | `RequestKnockback` | Displacement-based knockback on a target entity with eased decay |
-| `PlayFeedbackRecipe` | Single trigger message for named feedback recipes |
+| `PlayFeedbackRecipe` | Single trigger message for any recipe loaded into `FeedbackRecipeLibrary` |
+| `presets::{channels, recipes}` | Optional example-oriented channel aliases and named recipe packs |
 | `GameFeelToggles` | Resource to enable/disable individual effect categories at runtime |
 | `ShakeListener`, `PunchListener`, `ScreenPulseListener`, `RumbleListener` | Opt-in listeners for shake, punch, screen effects, and haptics |
 | `KnockbackReceiver` | Opt-in component for entities that can receive knockback displacement |
 | `GlobalTimeScale`, `EntityTimeScale` | Public timing surfaces for consumer gameplay systems |
 | `ShakeState`, `PunchState`, `FlashOutput`, `ScreenPulseOutput`, `RumbleOutput`, `SquashStretchState`, `KnockbackState` | Inspectable output surfaces and adapter bridge points |
-| `FeedbackRecipeLibrary`, `FeedbackRecipe`, `FeedbackAction`, `FeedbackCondition`, `FeedbackRecipeRepeat` | Data-driven recipe authoring surface, conditional playback, and loop control |
+| `FeedbackRecipeLibrary`, `FeedbackRecipe`, `FeedbackAction`, `FeedbackCondition`, `FeedbackRecipeRepeat` | Data-driven recipe authoring surface, blank-by-default library resource, conditional playback, and loop control |
 | `RecipeRumble`, `RecipeKnockback` | Recipe-authored haptics and knockback output |
 | `RecipeHooks`, `FeedbackHookTriggered` | Bridge recipe steps into audio, particles, or custom renderer integrations |
 | `Tween`, `TweenRepeat`, `AttackSustainDecay` | Lightweight easing and envelope helpers reused internally and available to consumers |
@@ -175,7 +182,25 @@ The runtime ships with a generic core plus a few concrete adapters:
 
 `FlashOutput` remains the material-style extension point for projects that want custom shader or material adapters. `ScreenPulseOutput` is likewise the recommended bridge into crates like `saddle-rendering-screen-effects` when projects want one unified post-process stack instead of multiple parallel overlay systems.
 
-Built-in recipes also emit `FeedbackHookTriggered` cue messages so audio, particles, and other presentation layers can subscribe without taking a hard dependency on any specific backend.
+Optional preset recipes from `presets::recipes` also emit `FeedbackHookTriggered` cue messages so audio, particles, and other presentation layers can subscribe without taking a hard dependency on any specific backend.
+
+## Optional Presets
+
+If you want the crate's example-oriented recipe pack and channel names, opt in explicitly:
+
+```rust,no_run
+use saddle_systems_game_feel::{GameFeelPlugin, PlayFeedbackRecipe, presets};
+
+App::new()
+    .add_plugins(GameFeelPlugin::default())
+    .insert_resource(presets::recipes::library());
+
+// Later:
+// recipes.write(
+//     PlayFeedbackRecipe::new(presets::recipes::HEAVY_IMPACT)
+//         .with_channels(presets::channels::WEAPON),
+// );
+```
 
 ## Examples
 
@@ -183,15 +208,15 @@ Built-in recipes also emit `FeedbackHookTriggered` cue messages so audio, partic
 | --- | --- | --- |
 | `basic` | Minimal self-running shake and punch loop | `cargo run -p saddle-systems-game-feel-example-basic` |
 | `hitstop` | Hitstop plus flash plus squash on a moving target | `cargo run -p saddle-systems-game-feel-example-hitstop` |
-| `recipes` | Built-in recipe playback loop | `cargo run -p saddle-systems-game-feel-example-recipes` |
+| `recipes` | Optional preset recipe playback loop | `cargo run -p saddle-systems-game-feel-example-recipes` |
 | `combo_system` | Two-cycle finisher combo that exercises conditional recipes, hook cues, and rumble outputs | `cargo run -p saddle-systems-game-feel-example-combo-system` |
 | `time_scale` | World slow-mo with an entity that ignores global scaling | `cargo run -p saddle-systems-game-feel-example-time_scale` |
 | `recoil_3d` | Perspective-camera recoil example proving 3D transform and FOV punch support | `cargo run -p saddle-systems-game-feel-example-recoil_3d` |
-| `debug_showcase` | Rich self-running showcase of recoil, impact, explosion, and reward pulses | `cargo run -p saddle-systems-game-feel-example-debug_showcase` |
+| `debug_showcase` | Rich self-running showcase of recoil plus optional impact, explosion, and reward presets | `cargo run -p saddle-systems-game-feel-example-debug_showcase` |
 | `punching` | Interactive punch bag with full effect stack: shake, hitstop, flash, squash, knockback, and recipe | `cargo run -p saddle-systems-game-feel-example-punching` |
 | `comparison` | Side-by-side with/without game feel; press T to toggle all effects | `cargo run -p saddle-systems-game-feel-example-comparison` |
 | `platformer` | Platformer feel: landing squash, jump stretch, wall shake, and recipe-driven impacts | `cargo run -p saddle-systems-game-feel-example-platformer` |
-| `shooter` | Weapon fire, light/heavy hits, and parry via the recipe system | `cargo run -p saddle-systems-game-feel-example-shooter` |
+| `shooter` | Weapon fire, light/heavy hits, and parry via the optional preset recipe pack | `cargo run -p saddle-systems-game-feel-example-shooter` |
 
 Every shipped example now includes a `saddle-pane` panel for live timing and intensity tuning.
 

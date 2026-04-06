@@ -2,21 +2,24 @@ use super::*;
 use crate::{
     AddTrauma, FeedbackHookTriggered, FeedbackStepFired, GameFeelDiagnostics, GlobalTimeScale,
     PlayFeedbackRecipe, RequestCameraImpulse, RequestFlash, RequestHitstop, RequestKnockback,
-    RequestRumble, RequestSquashStretch, RequestTimeScale,
+    RequestRumble, RequestSquashStretch, RequestTimeScale, channels::GameFeelChannels,
 };
 use bevy::math::curve::easing::EaseFunction;
 
+const WEAPON_CHANNEL: GameFeelChannels = GameFeelChannels::new(1 << 2);
+
 #[test]
-fn default_library_contains_builtin_presets() {
+fn default_library_is_blank() {
     let library = FeedbackRecipeLibrary::default();
-    assert!(library.recipes.contains_key("light_hit"));
-    assert!(library.recipes.contains_key("heavy_impact"));
-    assert!(library.recipes.contains_key("explosion"));
-    assert!(library.recipes.contains_key("reward_ping"));
-    assert!(library.recipes.contains_key("weapon_fire"));
-    assert!(library.recipes.contains_key("landing_impact"));
-    assert!(library.recipes.contains_key("dash_burst"));
-    assert!(library.recipes.contains_key("parry"));
+    assert!(library.recipes.is_empty());
+}
+
+#[test]
+fn preset_recipe_library_contains_named_recipes() {
+    let library = crate::presets::recipes::library();
+    for name in crate::presets::recipes::NAMES {
+        assert!(library.recipes.contains_key(name));
+    }
 }
 
 #[test]
@@ -24,7 +27,7 @@ fn recipe_step_emits_requests_on_first_frame() {
     let mut app = App::new();
     app.init_resource::<GlobalTimeScale>();
     app.init_resource::<GameFeelDiagnostics>();
-    app.init_resource::<FeedbackRecipeLibrary>();
+    app.insert_resource(crate::presets::recipes::library());
     app.init_resource::<RecipeRuntime>();
     app.add_message::<AddTrauma>();
     app.add_message::<RequestCameraImpulse>();
@@ -52,12 +55,12 @@ fn recipe_step_emits_requests_on_first_frame() {
     app.world_mut()
         .resource_mut::<Messages<PlayFeedbackRecipe>>()
         .write(PlayFeedbackRecipe {
-            name: "light_hit".into(),
+            name: crate::presets::recipes::LIGHT_HIT.into(),
             context: FeedbackContext {
                 listener: Some(listener),
                 target: Some(target),
                 group: vec![target],
-                channels: GameFeelChannels::WEAPON,
+                channels: WEAPON_CHANNEL,
                 ..default()
             },
         });
@@ -93,7 +96,7 @@ fn recipe_step_emits_requests_on_first_frame() {
 fn recipe_cooldown_prevents_duplicate_players_until_time_advances() {
     let mut app = App::new();
     app.init_resource::<GlobalTimeScale>();
-    app.init_resource::<FeedbackRecipeLibrary>();
+    app.insert_resource(crate::presets::recipes::library());
     app.init_resource::<RecipeRuntime>();
     app.add_message::<PlayFeedbackRecipe>();
     app.add_systems(
@@ -105,7 +108,7 @@ fn recipe_cooldown_prevents_duplicate_players_until_time_advances() {
     app.world_mut()
         .resource_mut::<Messages<PlayFeedbackRecipe>>()
         .write(PlayFeedbackRecipe {
-            name: "heavy_impact".into(),
+            name: crate::presets::recipes::HEAVY_IMPACT.into(),
             context: FeedbackContext {
                 listener: Some(listener),
                 ..default()
@@ -117,7 +120,7 @@ fn recipe_cooldown_prevents_duplicate_players_until_time_advances() {
     app.world_mut()
         .resource_mut::<Messages<PlayFeedbackRecipe>>()
         .write(PlayFeedbackRecipe {
-            name: "heavy_impact".into(),
+            name: crate::presets::recipes::HEAVY_IMPACT.into(),
             context: FeedbackContext {
                 listener: Some(listener),
                 ..default()
@@ -136,7 +139,7 @@ fn recipe_cooldown_prevents_duplicate_players_until_time_advances() {
     app.world_mut()
         .resource_mut::<Messages<PlayFeedbackRecipe>>()
         .write(PlayFeedbackRecipe {
-            name: "heavy_impact".into(),
+            name: crate::presets::recipes::HEAVY_IMPACT.into(),
             context: FeedbackContext {
                 listener: Some(listener),
                 ..default()

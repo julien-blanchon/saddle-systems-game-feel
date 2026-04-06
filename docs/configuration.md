@@ -14,21 +14,32 @@
 
 `GameFeelChannels` is a bitflag wrapper used by listeners and recipe contexts.
 
-Built-in constants:
+Core constants:
 
-- `GameFeelChannels::GAMEPLAY`
-- `GameFeelChannels::AMBIENT`
-- `GameFeelChannels::WEAPON`
-- `GameFeelChannels::UI`
 - `GameFeelChannels::ALL`
 - `GameFeelChannels::NONE`
 
-Guidance:
+Core usage:
 
-- use `WEAPON` for recoil and hit-confirm feedback
-- use `GAMEPLAY` for collisions, landings, and enemy impacts
-- use `AMBIENT` for rumbles or long-tail environmental feel
-- use `UI` for reward pulses or icon emphasis
+- define your own semantic aliases in your game crate with `GameFeelChannels::new(bits)`
+- compose them with `|` and test them with `contains(...)` / `intersects(...)`
+- the crate intentionally keeps the core surface vocabulary-free
+
+Optional example aliases:
+
+- `saddle_systems_game_feel::presets::channels::GAMEPLAY`
+- `saddle_systems_game_feel::presets::channels::AMBIENT`
+- `saddle_systems_game_feel::presets::channels::WEAPON`
+- `saddle_systems_game_feel::presets::channels::UI`
+
+Example:
+
+```rust
+use saddle_systems_game_feel::GameFeelChannels;
+
+const COLLISION: GameFeelChannels = GameFeelChannels::new(1 << 0);
+const REWARD: GameFeelChannels = GameFeelChannels::new(1 << 1);
+```
 
 ## `GameFeelToggles`
 
@@ -217,16 +228,7 @@ The crate computes displacement only. Consumer systems read `KnockbackState.disp
 
 ## Recipes
 
-The built-in `FeedbackRecipeLibrary::default()` includes:
-
-- `light_hit`
-- `heavy_impact`
-- `explosion`
-- `reward_ping`
-- `weapon_fire`
-- `landing_impact`
-- `dash_burst`
-- `parry`
+`FeedbackRecipeLibrary::default()` is intentionally blank.
 
 Recipe authoring types:
 
@@ -252,10 +254,11 @@ Additional recipe controls:
 
 Important defaults:
 
-- `FeedbackRecipeLibrary::default()` loads the built-in presets
-- `FeedbackRecipeLibrary::empty()` gives a truly blank library
-- Built-in recipes emit `FeedbackHookTriggered` for audio/particle integration without hard-coding any backend dependency
-- The built-in impact-oriented recipes now also emit `RequestRumble` so downstream input or platform layers can mirror the authored feedback mix
+- `FeedbackRecipeLibrary::default()` and `FeedbackRecipeLibrary::empty()` both give a blank library
+- `saddle_systems_game_feel::presets::recipes::library()` loads the optional named sample pack
+- `saddle_systems_game_feel::presets::recipes::insert_all(&mut library)` merges that pack into an existing library
+- preset recipes emit `FeedbackHookTriggered` for audio/particle integration without hard-coding any backend dependency
+- preset impact-oriented recipes also emit `RequestRumble` so downstream input or platform layers can mirror the authored feedback mix
 - `FeedbackContext.intensity_multiplier` scales all magnitude-like values (trauma, impulse vectors, flash intensity, rumble frequencies, squash deviation, knockback force) but does not affect timing or stacking policy
 - `PlayFeedbackRecipe::new("name").with_intensity(0.5)` is a convenient shorthand for setting `intensity_multiplier`
 
@@ -274,8 +277,8 @@ Good defaults are intentionally moderate. If you need more impact:
 
 Use channels aggressively:
 
-- gameplay cameras can subscribe to `GAMEPLAY | WEAPON`
-- UI cameras or overlays can subscribe to `UI`
+- gameplay cameras can subscribe to your own collision / weapon bits
+- UI cameras or overlays can subscribe to a dedicated reward/UI bit
 - spectator or cinematic cameras can apply their own listener scaling
 
 ### Slow Motion Integration
@@ -293,6 +296,8 @@ That keeps ownership explicit and avoids hidden global-time side effects.
 All message types support a fluent builder pattern for concise construction:
 
 ```rust
+use saddle_systems_game_feel::{presets, AddTrauma, PlayFeedbackRecipe};
+
 // Instead of struct literal with many fields:
 trauma.write(
     AddTrauma::new(ListenerTarget::Entity(camera), 0.28)
@@ -307,10 +312,10 @@ hitstop.write(
 );
 
 recipe.write(
-    PlayFeedbackRecipe::new("heavy_impact")
+    PlayFeedbackRecipe::new(presets::recipes::HEAVY_IMPACT)
         .with_listener(camera)
         .with_target(target)
-        .with_channels(GameFeelChannels::WEAPON)
+        .with_channels(presets::channels::WEAPON)
         .with_intensity(0.8),
 );
 ```

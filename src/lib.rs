@@ -3,6 +3,7 @@ mod config;
 mod flash;
 mod knockback;
 mod messages;
+pub mod presets;
 mod punch;
 mod recipe;
 mod rumble;

@@ -13,10 +13,10 @@ use saddle_systems_game_feel::{
     AddTrauma, EffectTimeDomain, EntitySelector, FeedbackAction, FeedbackCondition,
     FeedbackContext, FeedbackHookTriggered, FeedbackRecipe, FeedbackRecipeLibrary,
     FeedbackRecipeRepeat, FeedbackStep, FeedbackStepFired, FlashOutput, FlashTarget,
-    GameFeelChannels, GameFeelDiagnostics, GameFeelPlugin, GlobalTimeScale, ListenerSelector,
-    ListenerTarget, PlayFeedbackRecipe, RecipeHooks, RecipeRumble, RequestCameraImpulse,
-    RequestFlash, RequestHitstop, RequestSquashStretch, RumbleOutput, ScreenPulseOutput,
-    ShakeState, TimeScaleTarget,
+    GameFeelDiagnostics, GameFeelPlugin, GlobalTimeScale, ListenerSelector, ListenerTarget,
+    PlayFeedbackRecipe, RecipeHooks, RecipeRumble, RequestCameraImpulse, RequestFlash,
+    RequestHitstop, RequestSquashStretch, RumbleOutput, ScreenPulseOutput, ShakeState,
+    TimeScaleTarget, presets,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Reflect)]
@@ -173,7 +173,7 @@ pub fn reset_lab(world: &mut World, mode: LabMode) {
 }
 
 fn lab_recipe_library() -> FeedbackRecipeLibrary {
-    let mut library = FeedbackRecipeLibrary::with_builtin_presets();
+    let mut library = presets::recipes::library();
     library.recipes.insert(
         "combo_loop".into(),
         FeedbackRecipe {
@@ -328,9 +328,9 @@ fn drive_lab_mode(
                 && control.mode_frame >= control.showcase_index.saturating_mul(48) =>
         {
             let recipe_name = match control.showcase_index % 3 {
-                0 => "heavy_impact",
+                0 => presets::recipes::HEAVY_IMPACT,
                 1 => "combo_loop",
-                _ => "reward_ping",
+                _ => presets::recipes::REWARD_PING,
             };
             recipes.write(PlayFeedbackRecipe {
                 name: recipe_name.into(),
@@ -340,7 +340,7 @@ fn drive_lab_mode(
                     group: vec![target],
                     origin: Some(target_transform.translation),
                     direction: Vec3::new(1.0, -0.2, 0.0),
-                    channels: GameFeelChannels::WEAPON,
+                    channels: presets::channels::WEAPON,
                     ..default()
                 },
             });

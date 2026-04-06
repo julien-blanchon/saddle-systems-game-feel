@@ -8,10 +8,6 @@ pub struct GameFeelChannels(pub u64);
 impl GameFeelChannels {
     pub const NONE: Self = Self(0);
     pub const ALL: Self = Self(u64::MAX);
-    pub const GAMEPLAY: Self = Self(1 << 0);
-    pub const AMBIENT: Self = Self(1 << 1);
-    pub const WEAPON: Self = Self(1 << 2);
-    pub const UI: Self = Self(1 << 3);
 
     #[must_use]
     pub const fn new(bits: u64) -> Self {

@@ -1,7 +1,7 @@
 use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
-use saddle_systems_game_feel::{GameFeelChannels, GameFeelPlugin, PlayFeedbackRecipe};
+use saddle_systems_game_feel::{GameFeelPlugin, PlayFeedbackRecipe, presets};
 
 #[derive(Component)]
 struct Crosshair;
@@ -27,6 +27,7 @@ fn main() {
         },
     );
     app.add_plugins(GameFeelPlugin::default());
+    app.insert_resource(presets::recipes::library());
     app.insert_resource(FireCooldown(Timer::from_seconds(0.12, TimerMode::Once)));
     app.insert_resource(support::HudLabel(
         "Shooter Feel\n[SPACE] Fire weapon  [1] Light hit  [2] Heavy impact  [3] Parry\nRecoil, muzzle flash, hitstop on target".into(),
@@ -143,18 +144,18 @@ fn fire_weapon(
         cooldown.0.reset();
 
         recipe.write(
-            PlayFeedbackRecipe::new("weapon_fire")
+            PlayFeedbackRecipe::new(presets::recipes::WEAPON_FIRE)
                 .with_listener(camera)
-                .with_channels(GameFeelChannels::WEAPON)
+                .with_channels(presets::channels::WEAPON)
                 .with_intensity(pane.impulse_scale),
         );
 
         if let Some(target) = first_target {
             recipe.write(
-                PlayFeedbackRecipe::new("light_hit")
+                PlayFeedbackRecipe::new(presets::recipes::LIGHT_HIT)
                     .with_listener(camera)
                     .with_target(target)
-                    .with_channels(GameFeelChannels::WEAPON)
+                    .with_channels(presets::channels::WEAPON)
                     .with_intensity(pane.impulse_scale),
             );
         }
@@ -164,10 +165,10 @@ fn fire_weapon(
         && let Some(target) = first_target
     {
         recipe.write(
-            PlayFeedbackRecipe::new("light_hit")
+            PlayFeedbackRecipe::new(presets::recipes::LIGHT_HIT)
                 .with_listener(camera)
                 .with_target(target)
-                .with_channels(GameFeelChannels::GAMEPLAY)
+                .with_channels(presets::channels::GAMEPLAY)
                 .with_intensity(pane.impulse_scale),
         );
     }
@@ -176,10 +177,10 @@ fn fire_weapon(
         && let Some(target) = first_target
     {
         recipe.write(
-            PlayFeedbackRecipe::new("heavy_impact")
+            PlayFeedbackRecipe::new(presets::recipes::HEAVY_IMPACT)
                 .with_listener(camera)
                 .with_target(target)
-                .with_channels(GameFeelChannels::GAMEPLAY)
+                .with_channels(presets::channels::GAMEPLAY)
                 .with_intensity(pane.impulse_scale),
         );
     }
@@ -188,10 +189,10 @@ fn fire_weapon(
         && let Some(target) = first_target
     {
         recipe.write(
-            PlayFeedbackRecipe::new("parry")
+            PlayFeedbackRecipe::new(presets::recipes::PARRY)
                 .with_listener(camera)
                 .with_target(target)
-                .with_channels(GameFeelChannels::GAMEPLAY)
+                .with_channels(presets::channels::GAMEPLAY)
                 .with_intensity(pane.impulse_scale),
         );
     }

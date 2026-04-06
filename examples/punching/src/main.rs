@@ -2,9 +2,9 @@ use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
 use saddle_systems_game_feel::{
-    AddTrauma, GameFeelChannels, GameFeelPlugin, KnockbackReceiver, KnockbackState, ListenerTarget,
+    AddTrauma, GameFeelPlugin, KnockbackReceiver, KnockbackState, ListenerTarget,
     PlayFeedbackRecipe, RequestCameraImpulse, RequestFlash, RequestHitstop, RequestKnockback,
-    RequestSquashStretch,
+    RequestSquashStretch, presets,
 };
 
 #[derive(Component)]
@@ -27,6 +27,7 @@ fn main() {
         },
     );
     app.add_plugins(GameFeelPlugin::default());
+    app.insert_resource(presets::recipes::library());
     app.insert_resource(support::HudLabel(
         "Punching\nPress [SPACE] to punch the bag. Full game feel stack:\nscreenshake + hitstop + flash + squash + knockback + zoom".into(),
     ));
@@ -163,10 +164,10 @@ fn handle_punch_input(
     knockback.write(RequestKnockback::new(target, Vec3::X, 120.0 * intensity).with_duration(0.35));
 
     recipe.write(
-        PlayFeedbackRecipe::new("heavy_impact")
+        PlayFeedbackRecipe::new(presets::recipes::HEAVY_IMPACT)
             .with_listener(camera)
             .with_target(target)
-            .with_channels(GameFeelChannels::GAMEPLAY)
+            .with_channels(presets::channels::GAMEPLAY)
             .with_intensity(intensity * 0.5),
     );
 }

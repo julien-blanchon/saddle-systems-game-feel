@@ -4,9 +4,9 @@ use bevy::prelude::*;
 use saddle_systems_game_feel::{
     EffectTimeDomain, EntitySelector, FeedbackAction, FeedbackCondition, FeedbackContext,
     FeedbackHookTriggered, FeedbackRecipe, FeedbackRecipeLibrary, FeedbackRecipeRepeat,
-    FeedbackStep, FeedbackStepFired, GameFeelChannels, GameFeelPlugin, GameFeelSystems,
-    ListenerSelector, PlayFeedbackRecipe, RecipeFlash, RecipeFlashTarget, RecipeHooks,
-    RecipeImpulse, RecipeRumble, RecipeTrauma,
+    FeedbackStep, FeedbackStepFired, GameFeelPlugin, GameFeelSystems, ListenerSelector,
+    PlayFeedbackRecipe, RecipeFlash, RecipeFlashTarget, RecipeHooks, RecipeImpulse,
+    RecipeRumble, RecipeTrauma, presets,
 };
 
 #[derive(Resource)]
@@ -67,7 +67,7 @@ fn main() {
 }
 
 fn combo_library() -> FeedbackRecipeLibrary {
-    let mut library = FeedbackRecipeLibrary::with_builtin_presets();
+    let mut library = presets::recipes::library();
     library.recipes.insert(
         "combo_showcase".into(),
         FeedbackRecipe {
@@ -249,7 +249,7 @@ fn play_combo_cycle(
             group: vec![target],
             origin: Some(transform.translation),
             direction: Vec3::new(1.0, -0.15, 0.0),
-            channels: GameFeelChannels::WEAPON,
+            channels: presets::channels::WEAPON,
             ..default()
         },
     });

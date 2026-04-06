@@ -1,9 +1,7 @@
 use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
-use saddle_systems_game_feel::{
-    FeedbackContext, GameFeelChannels, GameFeelPlugin, PlayFeedbackRecipe,
-};
+use saddle_systems_game_feel::{FeedbackContext, GameFeelPlugin, PlayFeedbackRecipe, presets};
 
 #[derive(Resource)]
 struct RecipeTimer(Timer);
@@ -22,10 +20,12 @@ fn main() {
         },
     );
     app.add_plugins(GameFeelPlugin::default());
+    app.insert_resource(presets::recipes::library());
     app.insert_resource(RecipeTimer(Timer::from_seconds(1.35, TimerMode::Repeating)));
     app.insert_resource(RecipeCycle::default());
     app.insert_resource(support::HudLabel(
-        "Recipes\nAlternates built-in heavy_impact, explosion, and reward_ping presets.".into(),
+        "Recipes\nAlternates optional heavy_impact, explosion, and reward_ping preset recipes."
+            .into(),
     ));
     app.add_systems(Startup, support::setup_2d_scene);
     app.add_systems(
@@ -63,9 +63,9 @@ fn play_recipe_cycle(
     };
 
     let name = match cycle.0 % 3 {
-        0 => "heavy_impact",
-        1 => "explosion",
-        _ => "reward_ping",
+        0 => presets::recipes::HEAVY_IMPACT,
+        1 => presets::recipes::EXPLOSION,
+        _ => presets::recipes::REWARD_PING,
     };
     cycle.0 += 1;
 
@@ -77,7 +77,7 @@ fn play_recipe_cycle(
             group: vec![target],
             origin: Some(transform.translation),
             direction: Vec3::new(1.0, -0.2, 0.0),
-            channels: GameFeelChannels::WEAPON,
+            channels: presets::channels::WEAPON,
             ..default()
         },
     });
