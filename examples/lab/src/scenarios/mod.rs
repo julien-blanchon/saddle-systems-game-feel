@@ -1,7 +1,10 @@
 use bevy::ecs::message::Messages;
 use bevy::prelude::*;
 use saddle_bevy_e2e::{
-    action::Action, actions::assertions, scenario::Scenario, snapshot::Snapshot,
+    action::Action,
+    actions::{assertions, inspect},
+    scenario::Scenario,
+    snapshot::Snapshot,
 };
 use saddle_systems_game_feel::{
     AddTrauma, FeedbackContext, ImpulseSpace, ListenerTarget, PlayFeedbackRecipe,
@@ -68,6 +71,9 @@ fn smoke_launch() -> Scenario {
                     && evidence.current_screen_flash < 0.001
             },
         ))
+        .then(inspect::log_resource::<
+            saddle_systems_game_feel::GameFeelDiagnostics,
+        >("smoke diagnostics"))
         .then(Action::Screenshot("smoke_launch".into()))
         .then(Action::WaitFrames(1))
         .then(assertions::log_summary("smoke_launch summary"))
@@ -251,6 +257,9 @@ fn snap_restored_state() -> Scenario {
                     && evidence.current_screen_flash < 0.001
                     && evidence.current_target_scale_delta < 0.001
             },
+        ))
+        .action(inspect::log_resource::<LabEvidence>(
+            "restored idle evidence",
         ))
         .capture("restored_idle")
         .action(assertions::log_summary("snap_restored_state summary"))
