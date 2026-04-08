@@ -26,6 +26,11 @@ cargo run -p saddle-systems-game-feel-lab --features e2e -- shake_focus
 cargo run -p saddle-systems-game-feel-lab --features e2e -- hitstop_flash
 cargo run -p saddle-systems-game-feel-lab --features e2e -- recipe_showcase
 cargo run -p saddle-systems-game-feel-lab --features e2e -- snap_restored_state
+cargo run -p saddle-systems-game-feel-lab --features e2e -- combo_recipe
+cargo run -p saddle-systems-game-feel-lab --features e2e -- time_scale_pulse
+cargo run -p saddle-systems-game-feel-lab --features e2e -- recoil_3d_punch
+cargo run -p saddle-systems-game-feel-lab --features e2e -- comparison_toggle
+cargo run -p saddle-systems-game-feel-lab --features e2e -- debug_cycle_presets
 ```
 
 ## BRP

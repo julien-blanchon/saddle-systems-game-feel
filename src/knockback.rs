@@ -1,5 +1,5 @@
 use crate::{
-    config::{EffectTimeDomain, GameFeelDiagnostics},
+    config::{EffectTimeDomain, GameFeelDiagnostics, GameFeelToggles},
     time_scale::GlobalTimeScale,
     tween::Tween,
 };
@@ -48,10 +48,16 @@ pub(crate) struct KnockbackRuntime {
 }
 
 pub(crate) fn process_knockback_requests(
+    toggles: Res<GameFeelToggles>,
     mut requests: MessageReader<crate::messages::RequestKnockback>,
     mut commands: Commands,
     query: Query<(Entity, Option<&KnockbackReceiver>)>,
 ) {
+    if !toggles.knockback_enabled {
+        let _ = requests.read().count();
+        return;
+    }
+
     for request in requests.read() {
         if query.get(request.target).is_err() {
             continue;

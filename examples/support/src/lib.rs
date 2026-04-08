@@ -173,6 +173,26 @@ pub fn seed_example_pane(app: &mut App, pane: ExampleFeelPane) {
     app.insert_resource(ExampleFeelPaneBootstrap(pane));
 }
 
+#[must_use]
+pub fn parse_e2e_args(args: &[String]) -> (Option<String>, bool) {
+    let mut scenario_name = None;
+    let mut handoff = false;
+
+    for arg in args.iter().skip(1) {
+        if arg == "--handoff" {
+            handoff = true;
+        } else if !arg.starts_with('-') && scenario_name.is_none() {
+            scenario_name = Some(arg.clone());
+        }
+    }
+
+    if !handoff {
+        handoff = std::env::var("E2E_HANDOFF").is_ok_and(|value| value == "1" || value == "true");
+    }
+
+    (scenario_name, handoff)
+}
+
 pub fn setup_2d_scene(mut commands: Commands) {
     commands.spawn((
         Name::new("Feel Camera"),

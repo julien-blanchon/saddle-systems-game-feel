@@ -1,3 +1,5 @@
+#[cfg(feature = "e2e")]
+mod e2e;
 use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
@@ -20,6 +22,13 @@ struct Player {
 #[derive(Component)]
 struct Floor;
 
+pub(crate) struct JumpFeedback {
+    squash: RequestSquashStretch,
+    trauma: AddTrauma,
+    impulse: RequestCameraImpulse,
+    recipe: PlayFeedbackRecipe,
+}
+
 fn main() {
     let mut app = App::new();
     support::add_example_plugins(
@@ -34,6 +43,8 @@ fn main() {
             ..default()
         },
     );
+    #[cfg(feature = "e2e")]
+    app.add_plugins(e2e::PlatformerE2EPlugin);
     app.add_plugins(GameFeelPlugin::default());
     app.insert_resource(presets::recipes::library());
     app.insert_resource(support::HudLabel(
@@ -46,6 +57,31 @@ fn main() {
         (support::update_hud, player_input, player_physics).chain(),
     );
     app.run();
+}
+
+pub(crate) fn apply_jump(player: &mut Player) {
+    player.velocity.y = JUMP_VELOCITY;
+    player.grounded = false;
+}
+
+pub(crate) fn build_jump_feedback(
+    entity: Entity,
+    pane: &support::ExampleFeelPane,
+    camera: Entity,
+) -> JumpFeedback {
+    JumpFeedback {
+        squash: RequestSquashStretch::new(entity, Vec3::new(0.80, 1.30, 1.0)).with_duration(0.14),
+        trauma: AddTrauma::new(ListenerTarget::Entity(camera), 0.06 * pane.trauma_scale),
+        impulse: RequestCameraImpulse::new(
+            ListenerTarget::Entity(camera),
+            Vec3::new(0.0, 0.04, 0.0) * pane.impulse_scale,
+        ),
+        recipe: PlayFeedbackRecipe::new(presets::recipes::DASH_BURST)
+            .with_listener(camera)
+            .with_target(entity)
+            .with_channels(presets::channels::GAMEPLAY)
+            .with_intensity(0.3),
+    }
 }
 
 fn setup_platformer_scene(mut commands: Commands) {
@@ -145,30 +181,12 @@ fn player_input(
     player.velocity.x = move_dir * MOVE_SPEED;
 
     if keys.just_pressed(KeyCode::Space) && player.grounded {
-        player.velocity.y = JUMP_VELOCITY;
-        player.grounded = false;
-
-        squash.write(
-            RequestSquashStretch::new(entity, Vec3::new(0.80, 1.30, 1.0)).with_duration(0.14),
-        );
-
-        trauma.write(AddTrauma::new(
-            ListenerTarget::Entity(camera),
-            0.06 * pane.trauma_scale,
-        ));
-
-        impulse.write(RequestCameraImpulse::new(
-            ListenerTarget::Entity(camera),
-            Vec3::new(0.0, 0.04, 0.0) * pane.impulse_scale,
-        ));
-
-        recipe.write(
-            PlayFeedbackRecipe::new(presets::recipes::DASH_BURST)
-                .with_listener(camera)
-                .with_target(entity)
-                .with_channels(presets::channels::GAMEPLAY)
-                .with_intensity(0.3),
-        );
+        apply_jump(&mut player);
+        let feedback = build_jump_feedback(entity, &pane, camera);
+        squash.write(feedback.squash);
+        trauma.write(feedback.trauma);
+        impulse.write(feedback.impulse);
+        recipe.write(feedback.recipe);
     }
 
     let _ = transform;

@@ -1,3 +1,5 @@
+#[cfg(feature = "e2e")]
+mod e2e;
 use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
@@ -26,6 +28,8 @@ fn main() {
             ..default()
         },
     );
+    #[cfg(feature = "e2e")]
+    app.add_plugins(e2e::ShooterE2EPlugin);
     app.add_plugins(GameFeelPlugin::default());
     app.insert_resource(presets::recipes::library());
     app.insert_resource(FireCooldown(Timer::from_seconds(0.12, TimerMode::Once)));
@@ -122,6 +126,44 @@ fn setup_shooter_scene(mut commands: Commands) {
     ));
 }
 
+pub(crate) fn weapon_fire_requests(
+    pane: &support::ExampleFeelPane,
+    camera: Entity,
+    target: Option<Entity>,
+) -> Vec<PlayFeedbackRecipe> {
+    let mut requests = vec![
+        PlayFeedbackRecipe::new(presets::recipes::WEAPON_FIRE)
+            .with_listener(camera)
+            .with_channels(presets::channels::WEAPON)
+            .with_intensity(pane.impulse_scale),
+    ];
+
+    if let Some(target) = target {
+        requests.push(
+            PlayFeedbackRecipe::new(presets::recipes::LIGHT_HIT)
+                .with_listener(camera)
+                .with_target(target)
+                .with_channels(presets::channels::WEAPON)
+                .with_intensity(pane.impulse_scale),
+        );
+    }
+
+    requests
+}
+
+pub(crate) fn gameplay_recipe_request(
+    recipe_name: &'static str,
+    pane: &support::ExampleFeelPane,
+    camera: Entity,
+    target: Entity,
+) -> PlayFeedbackRecipe {
+    PlayFeedbackRecipe::new(recipe_name)
+        .with_listener(camera)
+        .with_target(target)
+        .with_channels(presets::channels::GAMEPLAY)
+        .with_intensity(pane.impulse_scale)
+}
+
 fn fire_weapon(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -143,57 +185,41 @@ fn fire_weapon(
     if keys.just_pressed(KeyCode::Space) && can_fire {
         cooldown.0.reset();
 
-        recipe.write(
-            PlayFeedbackRecipe::new(presets::recipes::WEAPON_FIRE)
-                .with_listener(camera)
-                .with_channels(presets::channels::WEAPON)
-                .with_intensity(pane.impulse_scale),
-        );
-
-        if let Some(target) = first_target {
-            recipe.write(
-                PlayFeedbackRecipe::new(presets::recipes::LIGHT_HIT)
-                    .with_listener(camera)
-                    .with_target(target)
-                    .with_channels(presets::channels::WEAPON)
-                    .with_intensity(pane.impulse_scale),
-            );
+        for request in weapon_fire_requests(&pane, camera, first_target) {
+            recipe.write(request);
         }
     }
 
     if keys.just_pressed(KeyCode::Digit1)
         && let Some(target) = first_target
     {
-        recipe.write(
-            PlayFeedbackRecipe::new(presets::recipes::LIGHT_HIT)
-                .with_listener(camera)
-                .with_target(target)
-                .with_channels(presets::channels::GAMEPLAY)
-                .with_intensity(pane.impulse_scale),
-        );
+        recipe.write(gameplay_recipe_request(
+            presets::recipes::LIGHT_HIT,
+            &pane,
+            camera,
+            target,
+        ));
     }
 
     if keys.just_pressed(KeyCode::Digit2)
         && let Some(target) = first_target
     {
-        recipe.write(
-            PlayFeedbackRecipe::new(presets::recipes::HEAVY_IMPACT)
-                .with_listener(camera)
-                .with_target(target)
-                .with_channels(presets::channels::GAMEPLAY)
-                .with_intensity(pane.impulse_scale),
-        );
+        recipe.write(gameplay_recipe_request(
+            presets::recipes::HEAVY_IMPACT,
+            &pane,
+            camera,
+            target,
+        ));
     }
 
     if keys.just_pressed(KeyCode::Digit3)
         && let Some(target) = first_target
     {
-        recipe.write(
-            PlayFeedbackRecipe::new(presets::recipes::PARRY)
-                .with_listener(camera)
-                .with_target(target)
-                .with_channels(presets::channels::GAMEPLAY)
-                .with_intensity(pane.impulse_scale),
-        );
+        recipe.write(gameplay_recipe_request(
+            presets::recipes::PARRY,
+            &pane,
+            camera,
+            target,
+        ));
     }
 }
