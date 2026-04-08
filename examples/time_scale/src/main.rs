@@ -1,3 +1,5 @@
+#[cfg(feature = "e2e")]
+mod e2e;
 use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
@@ -20,6 +22,8 @@ fn main() {
             ..default()
         },
     );
+    #[cfg(feature = "e2e")]
+    app.add_plugins(e2e::TimeScaleE2EPlugin);
     app.add_plugins(GameFeelPlugin::default());
     app.insert_resource(TimeScaleTimer(Timer::from_seconds(
         1.6,

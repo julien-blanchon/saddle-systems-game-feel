@@ -6,8 +6,12 @@ use bevy::{
 };
 
 use saddle_systems_game_feel::{
-    AddTrauma, GameFeelChannels, GameFeelPlugin, GameFeelSystems, IgnoreHitstop, ListenerTarget,
-    PunchListener, RequestCameraImpulse, RequestHitstop, ShakeListener, ShakeState,
+    AddTrauma, FlashOutput, FlashTarget, GameFeelChannels, GameFeelPlugin, GameFeelSystems,
+    GameFeelToggles, IgnoreHitstop, KnockbackReceiver, KnockbackState, ListenerTarget,
+    PunchListener, RequestCameraImpulse, RequestFlash, RequestHitstop, RequestKnockback,
+    RequestRumble, RequestSquashStretch, RequestTimeScale, RumbleListener, RumbleOutput,
+    ScreenPulseListener, ScreenPulseOutput, ShakeListener, ShakeState, SquashStretchState,
+    TimeScaleTarget,
 };
 
 const GAMEPLAY_CHANNEL: GameFeelChannels = GameFeelChannels::new(1 << 0);
@@ -241,4 +245,126 @@ fn transform_returns_to_baseline_after_punch_finishes() {
         .expect("transform should exist");
     assert!((transform.translation - Vec3::new(1.0, 2.0, 3.0)).length() < 0.001);
     assert!((transform.scale - Vec3::ONE).length() < 0.001);
+}
+
+#[test]
+fn all_disabled_toggles_block_new_requests() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .add_plugins(GameFeelPlugin::always_on(Update));
+
+    let listener = app
+        .world_mut()
+        .spawn((
+            ShakeListener::default(),
+            PunchListener::default(),
+            RumbleListener::default(),
+            ScreenPulseListener::default(),
+            Transform::default(),
+        ))
+        .id();
+    let target = app.world_mut().spawn((KnockbackReceiver::default(),)).id();
+
+    start_runtime(&mut app);
+    *app.world_mut().resource_mut::<GameFeelToggles>() = GameFeelToggles::all_disabled();
+
+    app.world_mut()
+        .resource_mut::<Messages<AddTrauma>>()
+        .write(AddTrauma::new(ListenerTarget::Entity(listener), 0.35));
+    app.world_mut()
+        .resource_mut::<Messages<RequestCameraImpulse>>()
+        .write(RequestCameraImpulse::new(
+            ListenerTarget::Entity(listener),
+            Vec3::new(0.4, 0.0, 0.0),
+        ));
+    app.world_mut()
+        .resource_mut::<Messages<RequestFlash>>()
+        .write(RequestFlash::new(
+            FlashTarget::EntityAndScreen {
+                entity: target,
+                screen: ListenerTarget::Entity(listener),
+            },
+            Color::WHITE,
+            0.45,
+        ));
+    app.world_mut()
+        .resource_mut::<Messages<RequestRumble>>()
+        .write(RequestRumble::new(
+            ListenerTarget::Entity(listener),
+            0.4,
+            0.6,
+        ));
+    app.world_mut()
+        .resource_mut::<Messages<RequestSquashStretch>>()
+        .write(RequestSquashStretch::new(target, Vec3::new(1.2, 0.8, 1.0)));
+    app.world_mut()
+        .resource_mut::<Messages<RequestKnockback>>()
+        .write(RequestKnockback::new(target, Vec3::X, 20.0));
+    app.world_mut()
+        .resource_mut::<Messages<RequestHitstop>>()
+        .write(RequestHitstop::new(TimeScaleTarget::World, 3));
+    app.world_mut()
+        .resource_mut::<Messages<RequestTimeScale>>()
+        .write(RequestTimeScale::new(TimeScaleTarget::World, 0.5).with_ramp(0.0, 0.1, 0.1));
+
+    advance_frame(&mut app);
+
+    assert!(!app.world().entity(listener).contains::<ShakeState>());
+    assert!(
+        !app.world()
+            .entity(listener)
+            .contains::<saddle_systems_game_feel::PunchState>()
+    );
+    assert!(!app.world().entity(listener).contains::<RumbleOutput>());
+    assert!(!app.world().entity(listener).contains::<ScreenPulseOutput>());
+    assert!(!app.world().entity(target).contains::<FlashOutput>());
+    assert!(!app.world().entity(target).contains::<SquashStretchState>());
+    assert!(!app.world().entity(target).contains::<KnockbackState>());
+    assert!(
+        app.world()
+            .resource::<saddle_systems_game_feel::GlobalTimeScale>()
+            .scale
+            > 0.99
+    );
+}
+
+#[test]
+fn disabling_toggles_does_not_strand_existing_hitstop() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .add_plugins(GameFeelPlugin::always_on(Update));
+
+    start_runtime(&mut app);
+    app.world_mut()
+        .resource_mut::<Messages<RequestHitstop>>()
+        .write(RequestHitstop {
+            target: TimeScaleTarget::World,
+            hold_frames: 2,
+            recovery_frames: 2,
+            ..RequestHitstop::new(TimeScaleTarget::World, 2)
+        });
+
+    advance_frame(&mut app);
+    assert!(
+        app.world()
+            .resource::<saddle_systems_game_feel::GlobalTimeScale>()
+            .scale
+            < 0.001
+    );
+
+    *app.world_mut().resource_mut::<GameFeelToggles>() = GameFeelToggles::all_disabled();
+    app.world_mut()
+        .resource_mut::<Messages<RequestHitstop>>()
+        .write(RequestHitstop::new(TimeScaleTarget::World, 10));
+
+    for _ in 0..5 {
+        advance_frame(&mut app);
+    }
+
+    assert!(
+        app.world()
+            .resource::<saddle_systems_game_feel::GlobalTimeScale>()
+            .scale
+            > 0.99
+    );
 }

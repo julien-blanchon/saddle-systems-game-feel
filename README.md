@@ -204,19 +204,19 @@ App::new()
 
 ## Examples
 
-| Example | Purpose | Run |
-| --- | --- | --- |
-| `basic` | Minimal self-running shake and punch loop | `cargo run -p saddle-systems-game-feel-example-basic` |
-| `hitstop` | Hitstop plus flash plus squash on a moving target | `cargo run -p saddle-systems-game-feel-example-hitstop` |
-| `recipes` | Optional preset recipe playback loop | `cargo run -p saddle-systems-game-feel-example-recipes` |
-| `combo_system` | Two-cycle finisher combo that exercises conditional recipes, hook cues, and rumble outputs | `cargo run -p saddle-systems-game-feel-example-combo-system` |
-| `time_scale` | World slow-mo with an entity that ignores global scaling | `cargo run -p saddle-systems-game-feel-example-time_scale` |
-| `recoil_3d` | Perspective-camera recoil example proving 3D transform and FOV punch support | `cargo run -p saddle-systems-game-feel-example-recoil_3d` |
-| `debug_showcase` | Rich self-running showcase of recoil plus optional impact, explosion, and reward presets | `cargo run -p saddle-systems-game-feel-example-debug_showcase` |
-| `punching` | Interactive punch bag with full effect stack: shake, hitstop, flash, squash, knockback, and recipe | `cargo run -p saddle-systems-game-feel-example-punching` |
-| `comparison` | Side-by-side with/without game feel; press T to toggle all effects | `cargo run -p saddle-systems-game-feel-example-comparison` |
-| `platformer` | Platformer feel: landing squash, jump stretch, wall shake, and recipe-driven impacts | `cargo run -p saddle-systems-game-feel-example-platformer` |
-| `shooter` | Weapon fire, light/heavy hits, and parry via the optional preset recipe pack | `cargo run -p saddle-systems-game-feel-example-shooter` |
+| Example | Purpose | Run | E2E |
+| --- | --- | --- | --- |
+| `basic` | Minimal self-running shake and punch loop | `cargo run -p saddle-systems-game-feel-example-basic` | `cargo run -p saddle-systems-game-feel-example-basic --features e2e -- game_feel_basic_loop` |
+| `hitstop` | Hitstop plus flash plus squash on a moving target | `cargo run -p saddle-systems-game-feel-example-hitstop` | `cargo run -p saddle-systems-game-feel-example-hitstop --features e2e -- game_feel_hitstop_cycle` |
+| `recipes` | Optional preset recipe playback loop | `cargo run -p saddle-systems-game-feel-example-recipes` | `cargo run -p saddle-systems-game-feel-example-recipes --features e2e -- game_feel_recipes_cycle` |
+| `combo_system` | Two-cycle finisher combo that exercises conditional recipes, hook cues, and rumble outputs | `cargo run -p saddle-systems-game-feel-example-combo-system` | `cargo run -p saddle-systems-game-feel-example-combo-system --features e2e -- game_feel_combo_system_cycle` |
+| `time_scale` | World slow-mo with an entity that ignores global scaling | `cargo run -p saddle-systems-game-feel-example-time_scale` | `cargo run -p saddle-systems-game-feel-example-time_scale --features e2e -- game_feel_time_scale_pulse` |
+| `recoil_3d` | Perspective-camera recoil example proving 3D transform and FOV punch support | `cargo run -p saddle-systems-game-feel-example-recoil_3d` | `cargo run -p saddle-systems-game-feel-example-recoil_3d --features e2e -- game_feel_recoil_3d_cycle` |
+| `debug_showcase` | Rich self-running showcase of recoil plus optional impact, explosion, and reward presets | `cargo run -p saddle-systems-game-feel-example-debug_showcase` | `cargo run -p saddle-systems-game-feel-example-debug_showcase --features e2e -- game_feel_debug_showcase_cycle` |
+| `punching` | Interactive punch bag with full effect stack: shake, hitstop, flash, squash, knockback, and recipe | `cargo run -p saddle-systems-game-feel-example-punching` | `cargo run -p saddle-systems-game-feel-example-punching --features e2e -- game_feel_punching_strike` |
+| `comparison` | Side-by-side with/without game feel; press T to toggle all effects | `cargo run -p saddle-systems-game-feel-example-comparison` | `cargo run -p saddle-systems-game-feel-example-comparison --features e2e -- game_feel_comparison_toggle` |
+| `platformer` | Platformer feel: landing squash, jump stretch, wall shake, and recipe-driven impacts | `cargo run -p saddle-systems-game-feel-example-platformer` | `cargo run -p saddle-systems-game-feel-example-platformer --features e2e -- game_feel_platformer_jump_land` |
+| `shooter` | Weapon fire, light/heavy hits, and parry via the optional preset recipe pack | `cargo run -p saddle-systems-game-feel-example-shooter` | `cargo run -p saddle-systems-game-feel-example-shooter --features e2e -- game_feel_shooter_fire_and_hit` |
 
 Every shipped example now includes a `saddle-pane` panel for live timing and intensity tuning.
 
@@ -232,6 +232,8 @@ It is the primary BRP and E2E verification target for this crate.
 
 The lab now verifies recipe step playback, recipe hook emission, and rumble output activity, so the output-only integration path is exercised alongside the visual feedback path.
 
+Each shipped example also exposes a direct E2E scenario behind `--features e2e`, so interactive flows like punching, platformer movement, shooter hits, comparison toggling, and the real 3D recoil scene are verified in their own app instead of only through the shared lab.
+
 ## More Docs
 
 - [Architecture](docs/architecture.md)
@@ -242,5 +244,5 @@ The lab now verifies recipe step playback, recipe hook emission, and rumble outp
 - The built-in flash adapter only writes `Sprite` color directly. Material or shader-backed flash should read `FlashOutput` and apply it in project-specific render code.
 - Screen pulses default to `ScreenPulsePresentation::OutputOnly` so projects can bridge them into a shared post-process stack. The legacy overlay/chromatic adapter still exists for sandboxes and examples.
 - Time scaling is exposed as public resources/components; the crate does not mutate Bevy's global `Time<Virtual>` or freeze arbitrary gameplay systems automatically.
-- The crate now ships both 2D showcase examples and a focused 3D recoil example, but the crate-local lab still concentrates on one deterministic 2D scene so E2E screenshots stay comparable.
+- The crate-local lab still concentrates on one deterministic 2D scene so its screenshots stay comparable, even though the individual example packages now also ship their own E2E entrypoints for interactive and 3D verification.
 - Projects that need custom 3D material flashes or heavier renderer-specific post-processing will still usually add project-specific adapters on top of `FlashOutput` or `ScreenPulseOutput`.

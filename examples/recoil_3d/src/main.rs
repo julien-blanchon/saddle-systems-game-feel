@@ -1,3 +1,5 @@
+#[cfg(feature = "e2e")]
+mod e2e;
 use bevy::{post_process::effect_stack::ChromaticAberration, prelude::*};
 use saddle_systems_game_feel::{
     AddTrauma, GameFeelPlugin, ImpulseSpace, ListenerTarget, PunchListener, RequestCameraImpulse,
@@ -39,6 +41,8 @@ fn main() {
             ..default()
         },
     );
+    #[cfg(feature = "e2e")]
+    app.add_plugins(e2e::Recoil3dE2EPlugin);
     app.add_plugins(GameFeelPlugin::default())
         .insert_resource(RecoilTimer(Timer::from_seconds(0.70, TimerMode::Repeating)))
         .add_systems(Startup, setup)

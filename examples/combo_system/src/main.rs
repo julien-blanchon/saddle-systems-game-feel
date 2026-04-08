@@ -1,3 +1,5 @@
+#[cfg(feature = "e2e")]
+mod e2e;
 use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
@@ -5,8 +7,8 @@ use saddle_systems_game_feel::{
     EffectTimeDomain, EntitySelector, FeedbackAction, FeedbackCondition, FeedbackContext,
     FeedbackHookTriggered, FeedbackRecipe, FeedbackRecipeLibrary, FeedbackRecipeRepeat,
     FeedbackStep, FeedbackStepFired, GameFeelPlugin, GameFeelSystems, ListenerSelector,
-    PlayFeedbackRecipe, RecipeFlash, RecipeFlashTarget, RecipeHooks, RecipeImpulse,
-    RecipeRumble, RecipeTrauma, presets,
+    PlayFeedbackRecipe, RecipeFlash, RecipeFlashTarget, RecipeHooks, RecipeImpulse, RecipeRumble,
+    RecipeTrauma, presets,
 };
 
 #[derive(Resource)]
@@ -46,6 +48,8 @@ fn main() {
     app.insert_resource(support::HudLabel(
         "Combo System\nA two-cycle three-hit finisher uses recipe hooks, conditional playback, and rumble outputs.".into(),
     ));
+    #[cfg(feature = "e2e")]
+    app.add_plugins(e2e::ComboSystemE2EPlugin);
     app.add_plugins(GameFeelPlugin::default());
     app.add_systems(Startup, support::setup_2d_scene);
     app.add_systems(Update, support::advance_demo_motion);

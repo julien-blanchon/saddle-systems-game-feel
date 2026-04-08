@@ -58,6 +58,7 @@ Runtime resource that enables or disables individual effect categories. All fiel
 | `screen_pulse_enabled` | `bool` | `true` | Enables/disables screen pulse processing |
 
 Use `GameFeelToggles::all_disabled()` and `GameFeelToggles::all_enabled()` for bulk toggling.
+Disabled categories reject new requests immediately, while already-running effects continue updating until they settle back to baseline.
 
 ## `ShakeAccessibility`
 
@@ -208,15 +209,15 @@ Pair `EntityTimeScale` with `resolve_effective_time_scale(...)` when consumer mo
 | `target` | `Entity` | required | The entity to displace |
 | `direction` | `Vec3` | required | Direction of displacement (normalized internally) |
 | `force` | `f32` | required | Peak displacement magnitude in world units |
-| `duration_secs` | `f32` | `0.3` | How long the displacement decays |
-| `easing` | `EaseFunction` | `QuadraticOut` | Envelope curve for displacement decay |
+| `duration_secs` | `f32` | `0.25` | How long the displacement decays |
+| `easing` | `EaseFunction` | `ExponentialOut` | Envelope curve for displacement decay |
 | `clock` | `EffectTimeDomain` | `Unscaled` | Timing domain |
 
 `KnockbackReceiver` fields:
 
 | Field | Type | Default | Effect |
 | --- | --- | --- | --- |
-| `max_displacement` | `f32` | `500.0` | Maximum displacement magnitude clamp |
+| `max_displacement` | `f32` | `f32::MAX` | Maximum displacement magnitude clamp; leave at the default for effectively unbounded output and set an explicit cap when your movement model needs one |
 
 `KnockbackState` is the output surface:
 

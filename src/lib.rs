@@ -344,11 +344,12 @@ pub(crate) fn deactivate_runtime(mut runtime: ResMut<GameFeelRuntimeState>) {
 }
 
 fn process_trauma_requests(world: &mut World) {
+    let shake_enabled = world.resource::<GameFeelToggles>().shake_enabled;
     let requests: Vec<AddTrauma> = world
         .resource_mut::<Messages<AddTrauma>>()
         .drain()
         .collect();
-    if requests.is_empty() {
+    if requests.is_empty() || !shake_enabled {
         return;
     }
 
@@ -399,11 +400,12 @@ fn process_trauma_requests(world: &mut World) {
 }
 
 fn process_punch_requests(world: &mut World) {
+    let punch_enabled = world.resource::<GameFeelToggles>().punch_enabled;
     let requests: Vec<RequestCameraImpulse> = world
         .resource_mut::<Messages<RequestCameraImpulse>>()
         .drain()
         .collect();
-    if requests.is_empty() {
+    if requests.is_empty() || !punch_enabled {
         return;
     }
 
@@ -452,10 +454,14 @@ fn process_punch_requests(world: &mut World) {
 }
 
 fn process_time_scale_requests(world: &mut World) {
+    let time_scale_enabled = world.resource::<GameFeelToggles>().time_scale_enabled;
     let requests: Vec<RequestTimeScale> = world
         .resource_mut::<Messages<RequestTimeScale>>()
         .drain()
         .collect();
+    if !time_scale_enabled {
+        return;
+    }
 
     for request in requests {
         if (request.scale - 1.0).abs() <= f32::EPSILON
@@ -492,10 +498,14 @@ fn process_time_scale_requests(world: &mut World) {
 }
 
 fn process_hitstop_requests(world: &mut World) {
+    let hitstop_enabled = world.resource::<GameFeelToggles>().hitstop_enabled;
     let requests: Vec<RequestHitstop> = world
         .resource_mut::<Messages<RequestHitstop>>()
         .drain()
         .collect();
+    if !hitstop_enabled {
+        return;
+    }
 
     for request in requests {
         if request.hold_frames == 0 && request.recovery_frames == 0 {
@@ -553,11 +563,12 @@ fn process_split_hitstop_requests(world: &mut World) {
 }
 
 fn process_flash_requests(world: &mut World) {
+    let toggles = world.resource::<GameFeelToggles>().clone();
     let requests: Vec<RequestFlash> = world
         .resource_mut::<Messages<RequestFlash>>()
         .drain()
         .collect();
-    if requests.is_empty() {
+    if requests.is_empty() || (!toggles.flash_enabled && !toggles.screen_pulse_enabled) {
         return;
     }
 
@@ -570,8 +581,15 @@ fn process_flash_requests(world: &mut World) {
 
     for request in requests {
         match request.target {
-            FlashTarget::Entity(entity) => add_entity_flash(world, entity, &request),
+            FlashTarget::Entity(entity) => {
+                if toggles.flash_enabled {
+                    add_entity_flash(world, entity, &request);
+                }
+            }
             FlashTarget::Screen(target) => {
+                if !toggles.screen_pulse_enabled {
+                    continue;
+                }
                 let listeners =
                     collect_screen_pulse_targets(world, &mut screen_query, target, &request);
                 for (listener, factor) in listeners {
@@ -579,11 +597,15 @@ fn process_flash_requests(world: &mut World) {
                 }
             }
             FlashTarget::EntityAndScreen { entity, screen } => {
-                add_entity_flash(world, entity, &request);
-                let listeners =
-                    collect_screen_pulse_targets(world, &mut screen_query, screen, &request);
-                for (listener, factor) in listeners {
-                    add_screen_pulse(world, listener, &request, factor);
+                if toggles.flash_enabled {
+                    add_entity_flash(world, entity, &request);
+                }
+                if toggles.screen_pulse_enabled {
+                    let listeners =
+                        collect_screen_pulse_targets(world, &mut screen_query, screen, &request);
+                    for (listener, factor) in listeners {
+                        add_screen_pulse(world, listener, &request, factor);
+                    }
                 }
             }
         }
@@ -591,11 +613,12 @@ fn process_flash_requests(world: &mut World) {
 }
 
 fn process_rumble_requests(world: &mut World) {
+    let rumble_enabled = world.resource::<GameFeelToggles>().rumble_enabled;
     let requests: Vec<RequestRumble> = world
         .resource_mut::<Messages<RequestRumble>>()
         .drain()
         .collect();
-    if requests.is_empty() {
+    if requests.is_empty() || !rumble_enabled {
         return;
     }
 
@@ -616,10 +639,14 @@ fn process_rumble_requests(world: &mut World) {
 }
 
 fn process_squash_requests(world: &mut World) {
+    let squash_enabled = world.resource::<GameFeelToggles>().squash_stretch_enabled;
     let requests: Vec<RequestSquashStretch> = world
         .resource_mut::<Messages<RequestSquashStretch>>()
         .drain()
         .collect();
+    if !squash_enabled {
+        return;
+    }
 
     for request in requests {
         let Ok(mut entity) = world.get_entity_mut(request.target) else {

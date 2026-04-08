@@ -1,3 +1,5 @@
+#[cfg(feature = "e2e")]
+mod e2e;
 use saddle_systems_game_feel_example_support as support;
 
 use bevy::prelude::*;
@@ -29,6 +31,8 @@ fn main() {
             ..default()
         },
     );
+    #[cfg(feature = "e2e")]
+    app.add_plugins(e2e::ComparisonE2EPlugin);
     app.add_plugins(GameFeelPlugin::default());
     app.insert_resource(ComparisonTimer(Timer::from_seconds(
         1.0,
@@ -43,6 +47,14 @@ fn main() {
         (support::update_hud, toggle_effects, comparison_pulse),
     );
     app.run();
+}
+
+pub(crate) fn set_effects_enabled(toggles: &mut GameFeelToggles, enabled: bool) {
+    *toggles = if enabled {
+        GameFeelToggles::all_enabled()
+    } else {
+        GameFeelToggles::all_disabled()
+    };
 }
 
 fn setup_comparison_scene(mut commands: Commands) {
@@ -140,12 +152,8 @@ fn setup_comparison_scene(mut commands: Commands) {
 
 fn toggle_effects(keys: Res<ButtonInput<KeyCode>>, mut toggles: ResMut<GameFeelToggles>) {
     if keys.just_pressed(KeyCode::KeyT) {
-        let any_enabled = toggles.shake_enabled;
-        if any_enabled {
-            *toggles = GameFeelToggles::all_disabled();
-        } else {
-            *toggles = GameFeelToggles::all_enabled();
-        }
+        let enabled = !toggles.shake_enabled;
+        set_effects_enabled(&mut toggles, enabled);
     }
 }
 
